@@ -8,6 +8,16 @@ const swaggerSpec = require("./swagger/swaggerConfig");
 const authRoutes = require("./routes/authRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const providerRoutes = require("./routes/providerRoutes");
+const customerRoutes = require("./routes/customerRoutes");
+const invoiceRoutes = require("./routes/invoiceRoutes");
+const serviceRoutes = require("./routes/serviceRoutes");
+const hotelRoutes = require("./routes/hotelRoutes");
+const coffeeRoutes = require("./routes/coffeeRoutes");
+const restaurantRoutes = require("./routes/restaurantRoutes");
+const roomRoutes = require("./routes/roomRoutes");
+const tableRoutes = require("./routes/tableRoutes");
+const locationRoutes = require("./routes/locationRoutes");
+
 // Load .env file
 dotenv.config();
 
@@ -37,8 +47,17 @@ app.listen(PORT, () => {
 app.use("/api/users", userRoutes);
 app.use("/api/admins", adminRoutes);
 app.use("/api/providers", providerRoutes);
+app.use("/api/customers", customerRoutes);
+app.use("/api/invoices", invoiceRoutes);
+app.use("/api/services", serviceRoutes);
+app.use("/api/hotels", hotelRoutes);
+app.use("/api/coffees", coffeeRoutes);
+app.use("/api/restaurants", restaurantRoutes);
+app.use("/api/rooms", roomRoutes);
+app.use("/api/tables", tableRoutes);
+app.use("/api/locations", locationRoutes);
 
 // Swagger Documentation
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-
+//Auth
 app.use("/api/auth", authRoutes);
