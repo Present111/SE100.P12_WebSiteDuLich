@@ -17,7 +17,7 @@ const router = express.Router();
  * @swagger
  * /api/locations:
  *   post:
- *     summary: Tạo mới một Location (Chỉ Admin)
+ *     summary: Tạo mới một Location (Chỉ Admin và Provider)
  *     tags: [Locations]
  *     security:
  *       - bearerAuth: []
@@ -56,7 +56,7 @@ const router = express.Router();
 router.post(
   "/",
   authMiddleware,
-  roleMiddleware(["Admin"]), // Chỉ Admin được phép
+  roleMiddleware(["Admin", "Provider"]),
   [
     body("locationID").notEmpty().withMessage("Location ID is required"),
     body("locationName").notEmpty().withMessage("Location Name is required"),
@@ -192,24 +192,29 @@ router.get("/:id", async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.put("/:id", authMiddleware, roleMiddleware(["Admin"]), async (req, res) => {
-  try {
-    const updatedLocation = await Location.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
-    if (!updatedLocation)
-      return res.status(404).json({ error: "Location not found" });
+router.put(
+  "/:id",
+  authMiddleware,
+  roleMiddleware(["Admin"]),
+  async (req, res) => {
+    try {
+      const updatedLocation = await Location.findByIdAndUpdate(
+        req.params.id,
+        req.body,
+        { new: true }
+      );
+      if (!updatedLocation)
+        return res.status(404).json({ error: "Location not found" });
 
-    res.status(200).json({
-      message: "Location updated successfully",
-      data: updatedLocation,
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+      res.status(200).json({
+        message: "Location updated successfully",
+        data: updatedLocation,
+      });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
   }
-});
+);
 
 // DELETE - Xóa Location (Chỉ Admin)
 /**
@@ -237,16 +242,21 @@ router.put("/:id", authMiddleware, roleMiddleware(["Admin"]), async (req, res) =
  *       500:
  *         description: Server error
  */
-router.delete("/:id", authMiddleware, roleMiddleware(["Admin"]), async (req, res) => {
-  try {
-    const deletedLocation = await Location.findByIdAndDelete(req.params.id);
-    if (!deletedLocation)
-      return res.status(404).json({ error: "Location not found" });
+router.delete(
+  "/:id",
+  authMiddleware,
+  roleMiddleware(["Admin"]),
+  async (req, res) => {
+    try {
+      const deletedLocation = await Location.findByIdAndDelete(req.params.id);
+      if (!deletedLocation)
+        return res.status(404).json({ error: "Location not found" });
 
-    res.status(200).json({ message: "Location deleted successfully" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+      res.status(200).json({ message: "Location deleted successfully" });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
   }
-});
+);
 
 module.exports = router;

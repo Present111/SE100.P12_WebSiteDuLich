@@ -4,6 +4,7 @@ const Service = require("../models/Service");
 const authMiddleware = require("../middlewares/authMiddleware");
 const roleMiddleware = require("../middlewares/roleMiddleware");
 const router = express.Router();
+const mongoose = require("mongoose");
 
 /**
  * @swagger
@@ -33,10 +34,10 @@ const router = express.Router();
  *                 example: S001
  *               providerID:
  *                 type: string
- *                 example: P001
+ *                 example: 64f6b3c9e3a1a4321f2c1a8b
  *               locationID:
  *                 type: string
- *                 example: L001
+ *                 example: 64f6b3c9e3a1a4321f2c1a8b
  *               serviceName:
  *                 type: string
  *                 example: Luxury Travel
@@ -56,23 +57,42 @@ const router = express.Router();
  *     responses:
  *       201:
  *         description: Service created successfully
- *       403:
- *         description: Access denied
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Service created successfully
+ *                 data:
+ *                   $ref: '#/components/schemas/Service'
  *       400:
  *         description: Validation error
+ *       403:
+ *         description: Access denied
  *       500:
  *         description: Server error
  */
+
 router.post(
   "/",
   authMiddleware,
   roleMiddleware(["Provider"]), // Chỉ Provider được phép
   [
     body("serviceID").notEmpty().withMessage("Service ID is required"),
-    body("providerID").notEmpty().withMessage("Provider ID is required"),
-    body("locationID").notEmpty().withMessage("Location ID is required"),
+    body("providerID")
+      .isMongoId()
+      .withMessage("Provider ID must be a valid MongoID"),
+    body("locationID")
+      .isMongoId()
+      .withMessage("Location ID must be a valid MongoID"),
     body("serviceName").notEmpty().withMessage("Service name is required"),
     body("price").isNumeric().withMessage("Price must be a number"),
+    body("discountPrice")
+      .optional()
+      .isNumeric()
+      .withMessage("Discount Price must be a number"),
     body("status").isIn(["Active", "Inactive"]).withMessage("Invalid status"),
   ],
   async (req, res) => {
@@ -93,6 +113,7 @@ router.post(
     } = req.body;
 
     try {
+      // Tạo Service mới
       const newService = new Service({
         serviceID,
         providerID,
@@ -113,7 +134,6 @@ router.post(
     }
   }
 );
-
 // READ ALL - Lấy danh sách Services (Admin hoặc Provider)
 /**
  * @swagger

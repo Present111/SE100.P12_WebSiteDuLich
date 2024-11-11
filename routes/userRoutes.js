@@ -201,7 +201,7 @@ router.get(
  * @swagger
  * /api/users/{id}:
  *   put:
- *     summary: Cập nhật thông tin một người dùng (Chỉ Admin)
+ *     summary: Cập nhật thông tin một người dùng (bao gồm Role) (Chỉ Admin)
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
@@ -231,6 +231,10 @@ router.get(
  *               userName:
  *                 type: string
  *                 example: johnupdated
+ *               role:
+ *                 type: string
+ *                 example: Admin
+ *                 enum: [Admin, Provider, Customer]
  *     responses:
  *       200:
  *         description: User updated successfully
@@ -249,13 +253,23 @@ router.put(
   roleMiddleware(["Admin"]),
   async (req, res) => {
     try {
+      const { role } = req.body;
+
+      // Kiểm tra nếu role không hợp lệ
+      if (role && !["Admin", "Provider", "Customer"].includes(role)) {
+        return res.status(400).json({ error: "Invalid role value" });
+      }
+
+      // Cập nhật thông tin user
       const updatedUser = await User.findByIdAndUpdate(
         req.params.id,
         req.body,
         { new: true }
       );
+
       if (!updatedUser)
         return res.status(404).json({ error: "User not found" });
+
       res
         .status(200)
         .json({ message: "User updated successfully", data: updatedUser });

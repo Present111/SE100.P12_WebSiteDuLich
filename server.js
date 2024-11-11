@@ -17,6 +17,7 @@ const restaurantRoutes = require("./routes/restaurantRoutes");
 const roomRoutes = require("./routes/roomRoutes");
 const tableRoutes = require("./routes/tableRoutes");
 const locationRoutes = require("./routes/locationRoutes");
+const path = require("path");
 
 // Load .env file
 dotenv.config();
@@ -61,3 +62,5 @@ app.use("/api/locations", locationRoutes);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 //Auth
 app.use("/api/auth", authRoutes);
+// Cung cấp file ảnh từ thư mục "uploads"
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
