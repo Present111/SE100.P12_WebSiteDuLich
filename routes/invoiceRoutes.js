@@ -1,7 +1,6 @@
 const express = require("express");
 const { body, validationResult } = require("express-validator");
-const Invoice = require("../models/Invoice");
-const User = require("../models/User");
+const invoiceService = require("../services/invoiceService");
 const router = express.Router();
 
 /**
@@ -11,7 +10,7 @@ const router = express.Router();
  *   description: API quản lý hóa đơn
  */
 
-// CREATE - Thêm mới Invoice
+// CREATE - Tạo mới Invoice
 /**
  * @swagger
  * /api/invoices:
@@ -69,34 +68,8 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { invoiceID, userID, totalAmount, invoiceDate, paymentStatus } =
-      req.body;
-
     try {
-      // Kiểm tra UserID đã tồn tại
-      const user = await User.findOne({ userID });
-      if (!user) {
-        return res.status(400).json({ error: "UserID không tồn tại." });
-      }
-
-      // Kiểm tra Invoice ID đã tồn tại
-      const existingInvoice = await Invoice.findOne({ invoiceID });
-      if (existingInvoice) {
-        return res
-          .status(400)
-          .json({ error: "Invoice với ID này đã tồn tại." });
-      }
-
-      // Tạo Invoice mới
-      const newInvoice = new Invoice({
-        invoiceID,
-        userID,
-        totalAmount,
-        invoiceDate,
-        paymentStatus,
-      });
-      await newInvoice.save();
-
+      const newInvoice = await invoiceService.createInvoice(req.body);
       res
         .status(201)
         .json({ message: "Invoice created successfully", data: newInvoice });
@@ -121,14 +94,14 @@ router.post(
  */
 router.get("/", async (req, res) => {
   try {
-    const invoices = await Invoice.find().populate("userID", "fullName email");
+    const invoices = await invoiceService.getAllInvoices();
     res.status(200).json(invoices);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// READ ONE - Lấy thông tin chi tiết Invoice
+// READ ONE - Lấy chi tiết Invoice
 /**
  * @swagger
  * /api/invoices/{id}:
@@ -152,12 +125,8 @@ router.get("/", async (req, res) => {
  */
 router.get("/:id", async (req, res) => {
   try {
-    const invoice = await Invoice.findById(req.params.id).populate(
-      "userID",
-      "fullName email"
-    );
+    const invoice = await invoiceService.getInvoiceById(req.params.id);
     if (!invoice) return res.status(404).json({ error: "Invoice not found" });
-
     res.status(200).json(invoice);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -199,18 +168,15 @@ router.get("/:id", async (req, res) => {
  */
 router.put("/:id", async (req, res) => {
   try {
-    const updatedInvoice = await Invoice.findByIdAndUpdate(
+    const updatedInvoice = await invoiceService.updateInvoiceById(
       req.params.id,
-      req.body,
-      { new: true }
+      req.body
     );
     if (!updatedInvoice)
       return res.status(404).json({ error: "Invoice not found" });
-
-    res.status(200).json({
-      message: "Invoice updated successfully",
-      data: updatedInvoice,
-    });
+    res
+      .status(200)
+      .json({ message: "Invoice updated successfully", data: updatedInvoice });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -240,10 +206,7 @@ router.put("/:id", async (req, res) => {
  */
 router.delete("/:id", async (req, res) => {
   try {
-    const deletedInvoice = await Invoice.findByIdAndDelete(req.params.id);
-    if (!deletedInvoice)
-      return res.status(404).json({ error: "Invoice not found" });
-
+    await invoiceService.deleteInvoiceById(req.params.id);
     res.status(200).json({ message: "Invoice deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });

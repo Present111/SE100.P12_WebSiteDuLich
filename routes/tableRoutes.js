@@ -1,9 +1,8 @@
 const express = require("express");
 const { body, validationResult } = require("express-validator");
-const Table = require("../models/Table");
-const Restaurant = require("../models/Restaurant");
 const authMiddleware = require("../middlewares/authMiddleware");
 const roleMiddleware = require("../middlewares/roleMiddleware");
+const tableService = require("../services/tableService");
 const router = express.Router();
 
 /**
@@ -13,7 +12,7 @@ const router = express.Router();
  *   description: API quản lý Tables
  */
 
-// CREATE - Thêm mới Table (Chỉ Provider)
+// CREATE - Thêm mới Table
 /**
  * @swagger
  * /api/tables:
@@ -55,7 +54,7 @@ const router = express.Router();
 router.post(
   "/",
   authMiddleware,
-  roleMiddleware(["Provider"]), // Chỉ Provider được phép
+  roleMiddleware(["Provider"]),
   [
     body("tableID").notEmpty().withMessage("Table ID is required"),
     body("restaurantID").notEmpty().withMessage("Restaurant ID is required"),
@@ -68,33 +67,8 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { tableID, restaurantID, tableType, availableDate } = req.body;
-
     try {
-      // Kiểm tra Restaurant ID có tồn tại và thuộc về Provider hiện tại hay không
-      const restaurant = await Restaurant.findOne({ _id: restaurantID });
-      if (!restaurant) {
-        return res.status(400).json({ error: "Restaurant ID không tồn tại." });
-      }
-
-      if (
-        req.user.role === "Provider" &&
-        req.user.id !== restaurant.serviceID.providerID
-      ) {
-        return res
-          .status(403)
-          .json({ error: "Bạn không có quyền tạo Table cho Restaurant này." });
-      }
-
-      // Tạo Table mới
-      const newTable = new Table({
-        tableID,
-        restaurantID,
-        tableType,
-        availableDate,
-      });
-
-      await newTable.save();
+      const newTable = await tableService.createTable(req.body, req.user);
       res
         .status(201)
         .json({ message: "Table created successfully", data: newTable });
@@ -104,7 +78,7 @@ router.post(
   }
 );
 
-// READ ALL - Lấy danh sách Tables (Admin hoặc Provider)
+// READ ALL - Lấy danh sách Tables
 /**
  * @swagger
  * /api/tables:
@@ -116,8 +90,6 @@ router.post(
  *     responses:
  *       200:
  *         description: Danh sách Tables
- *       403:
- *         description: Access denied
  *       500:
  *         description: Server error
  */
@@ -127,10 +99,7 @@ router.get(
   roleMiddleware(["Admin", "Provider"]),
   async (req, res) => {
     try {
-      const tables = await Table.find().populate(
-        "restaurantID",
-        "restaurantName serviceID"
-      );
+      const tables = await tableService.getAllTables();
       res.status(200).json(tables);
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -138,7 +107,7 @@ router.get(
   }
 );
 
-// READ ONE - Lấy thông tin chi tiết Table
+// READ ONE - Lấy chi tiết Table theo ID
 /**
  * @swagger
  * /api/tables/{id}:
@@ -164,19 +133,15 @@ router.get(
  */
 router.get("/:id", authMiddleware, async (req, res) => {
   try {
-    const table = await Table.findById(req.params.id).populate(
-      "restaurantID",
-      "restaurantName serviceID"
-    );
+    const table = await tableService.getTableById(req.params.id);
     if (!table) return res.status(404).json({ error: "Table not found" });
-
     res.status(200).json(table);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// DELETE - Xóa Table (Chỉ Admin hoặc Provider sở hữu Restaurant)
+// DELETE - Xóa Table
 /**
  * @swagger
  * /api/tables/{id}:
@@ -204,21 +169,7 @@ router.get("/:id", authMiddleware, async (req, res) => {
  */
 router.delete("/:id", authMiddleware, async (req, res) => {
   try {
-    const table = await Table.findById(req.params.id).populate("restaurantID");
-
-    if (!table) {
-      return res.status(404).json({ error: "Table not found" });
-    }
-
-    // Chỉ Admin hoặc Provider sở hữu Restaurant được phép xóa
-    if (
-      req.user.role !== "Admin" &&
-      req.user.id !== table.restaurantID.serviceID.providerID
-    ) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-
-    await table.remove();
+    await tableService.deleteTableById(req.params.id, req.user);
     res.status(200).json({ message: "Table deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });

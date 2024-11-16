@@ -1,11 +1,9 @@
 const express = require("express");
 const { body, validationResult } = require("express-validator");
-const Provider = require("../models/Provider");
-const User = require("../models/User");
 const authMiddleware = require("../middlewares/authMiddleware");
 const roleMiddleware = require("../middlewares/roleMiddleware");
+const providerService = require("../services/providerService");
 const router = express.Router();
-const mongoose = require("mongoose");
 
 /**
  * @swagger
@@ -14,6 +12,7 @@ const mongoose = require("mongoose");
  *   description: API quản lý Providers (Chỉ Admin)
  */
 
+// CREATE - Tạo mới Provider
 /**
  * @swagger
  * /api/providers:
@@ -31,89 +30,27 @@ const mongoose = require("mongoose");
  *             properties:
  *               providerID:
  *                 type: string
- *                 description: ID duy nhất của Provider
  *                 example: P001
  *               userID:
  *                 type: string
- *                 description: ID của User phải tồn tại trong bảng Users và có vai trò là Provider
  *                 example: 64f6b3c9e3a1a4321f2c1a8b
  *               providerName:
  *                 type: string
- *                 description: Tên của Provider
  *                 example: ABC Travels
  *               address:
  *                 type: string
- *                 description: Địa chỉ của Provider
  *                 example: 123 Street, City, Country
  *               serviceDescription:
  *                 type: string
- *                 description: Mô tả các dịch vụ mà Provider cung cấp
  *                 example: Luxury travel services
  *     responses:
  *       201:
  *         description: Provider created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: Provider created successfully
- *                 data:
- *                   type: object
- *                   properties:
- *                     providerID:
- *                       type: string
- *                       example: P001
- *                     userID:
- *                       type: string
- *                       example: 64f6b3c9e3a1a4321f2c1a8b
- *                     providerName:
- *                       type: string
- *                       example: ABC Travels
- *                     address:
- *                       type: string
- *                       example: 123 Street, City, Country
- *                     serviceDescription:
- *                       type: string
- *                       example: Luxury travel services
- *                     _id:
- *                       type: string
- *                       example: 64f7b8e3e9a1a4321f2d3b4a
  *       400:
- *         description: Validation error hoặc UserID không tồn tại
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: UserID không tồn tại hoặc không phải Provider.
- *       403:
- *         description: Access denied (Không có quyền truy cập)
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: Access denied
+ *         description: Validation error
  *       500:
- *         description: Lỗi hệ thống
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 error:
- *                   type: string
- *                   example: Internal Server Error
+ *         description: Server error
  */
-
-// CREATE - Thêm mới Provider
 router.post(
   "/",
   authMiddleware,
@@ -130,37 +67,8 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { providerID, userID, providerName, address, serviceDescription } =
-      req.body;
-
     try {
-      // Kiểm tra User ID
-      const user = await User.findOne({ _id: userID, role: "Provider" });
-      if (!user) {
-        return res
-          .status(400)
-          .json({ error: "UserID không tồn tại hoặc không phải Provider." });
-      }
-
-      // Kiểm tra Provider ID đã tồn tại chưa
-      const existingProvider = await Provider.findOne({ providerID });
-      if (existingProvider) {
-        return res
-          .status(400)
-          .json({ error: "Provider với ID này đã tồn tại." });
-      }
-
-      // Tạo Provider mới
-      const newProvider = new Provider({
-        providerID,
-        userID: new mongoose.Types.ObjectId(userID), // Chuyển đổi đúng cách
-        providerName,
-        address,
-        serviceDescription,
-      });
-
-      await newProvider.save();
-
+      const newProvider = await providerService.createProvider(req.body);
       res
         .status(201)
         .json({ message: "Provider created successfully", data: newProvider });
@@ -182,17 +90,12 @@ router.post(
  *     responses:
  *       200:
  *         description: Danh sách Providers
- *       403:
- *         description: Access denied
  *       500:
  *         description: Server error
  */
 router.get("/", authMiddleware, roleMiddleware(["Admin"]), async (req, res) => {
   try {
-    const providers = await Provider.find().populate(
-      "userID",
-      "fullName email"
-    );
+    const providers = await providerService.getAllProviders();
     res.status(200).json(providers);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -218,10 +121,6 @@ router.get("/", authMiddleware, roleMiddleware(["Admin"]), async (req, res) => {
  *     responses:
  *       200:
  *         description: Thông tin Provider
- *       403:
- *         description: Access denied
- *       404:
- *         description: Provider not found
  *       500:
  *         description: Server error
  */
@@ -231,13 +130,9 @@ router.get(
   roleMiddleware(["Admin"]),
   async (req, res) => {
     try {
-      const provider = await Provider.findById(req.params.id).populate(
-        "userID",
-        "fullName email"
-      );
+      const provider = await providerService.getProviderById(req.params.id);
       if (!provider)
         return res.status(404).json({ error: "Provider not found" });
-
       res.status(200).json(provider);
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -254,13 +149,6 @@ router.get(
  *     tags: [Providers]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *           example: 64f6b3c9e3a1a4321f2c1a8b
  *     requestBody:
  *       required: true
  *       content:
@@ -280,10 +168,6 @@ router.get(
  *     responses:
  *       200:
  *         description: Provider updated successfully
- *       403:
- *         description: Access denied
- *       404:
- *         description: Provider not found
  *       500:
  *         description: Server error
  */
@@ -293,18 +177,18 @@ router.put(
   roleMiddleware(["Admin"]),
   async (req, res) => {
     try {
-      const updatedProvider = await Provider.findByIdAndUpdate(
+      const updatedProvider = await providerService.updateProviderById(
         req.params.id,
-        req.body,
-        { new: true }
+        req.body
       );
       if (!updatedProvider)
         return res.status(404).json({ error: "Provider not found" });
-
-      res.status(200).json({
-        message: "Provider updated successfully",
-        data: updatedProvider,
-      });
+      res
+        .status(200)
+        .json({
+          message: "Provider updated successfully",
+          data: updatedProvider,
+        });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -320,20 +204,9 @@ router.put(
  *     tags: [Providers]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *           example: 64f6b3c9e3a1a4321f2c1a8b
  *     responses:
  *       200:
  *         description: Provider deleted successfully
- *       403:
- *         description: Access denied
- *       404:
- *         description: Provider not found
  *       500:
  *         description: Server error
  */
@@ -343,10 +216,7 @@ router.delete(
   roleMiddleware(["Admin"]),
   async (req, res) => {
     try {
-      const deletedProvider = await Provider.findByIdAndDelete(req.params.id);
-      if (!deletedProvider)
-        return res.status(404).json({ error: "Provider not found" });
-
+      await providerService.deleteProviderById(req.params.id);
       res.status(200).json({ message: "Provider deleted successfully" });
     } catch (err) {
       res.status(500).json({ error: err.message });

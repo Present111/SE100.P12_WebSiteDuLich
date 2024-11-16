@@ -1,9 +1,8 @@
 const express = require("express");
 const { body, validationResult } = require("express-validator");
-const Customer = require("../models/Customer");
-const User = require("../models/User");
 const authMiddleware = require("../middlewares/authMiddleware");
 const roleMiddleware = require("../middlewares/roleMiddleware");
+const customerService = require("../services/customerService");
 const router = express.Router();
 
 /**
@@ -13,7 +12,7 @@ const router = express.Router();
  *   description: API quản lý Customers (Chỉ Admin)
  */
 
-// CREATE - Thêm mới Customer
+// CREATE - Tạo mới Customer
 /**
  * @swagger
  * /api/customers:
@@ -43,8 +42,6 @@ const router = express.Router();
  *         description: Customer created successfully
  *       400:
  *         description: Validation error
- *       403:
- *         description: Access denied
  *       500:
  *         description: Server error
  */
@@ -65,29 +62,8 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { customerID, userID, loyaltyPoints } = req.body;
-
     try {
-      // Kiểm tra UserID đã tồn tại chưa
-      const user = await User.findOne({ userID, role: "Customer" });
-      if (!user) {
-        return res
-          .status(400)
-          .json({ error: "UserID không tồn tại hoặc không phải Customer." });
-      }
-
-      // Kiểm tra Customer ID đã tồn tại chưa
-      const existingCustomer = await Customer.findOne({ customerID });
-      if (existingCustomer) {
-        return res
-          .status(400)
-          .json({ error: "Customer với ID này đã tồn tại." });
-      }
-
-      // Tạo Customer mới
-      const newCustomer = new Customer({ customerID, userID, loyaltyPoints });
-      await newCustomer.save();
-
+      const newCustomer = await customerService.createCustomer(req.body);
       res
         .status(201)
         .json({ message: "Customer created successfully", data: newCustomer });
@@ -109,24 +85,19 @@ router.post(
  *     responses:
  *       200:
  *         description: Danh sách Customers
- *       403:
- *         description: Access denied
  *       500:
  *         description: Server error
  */
 router.get("/", authMiddleware, roleMiddleware(["Admin"]), async (req, res) => {
   try {
-    const customers = await Customer.find().populate(
-      "userID",
-      "fullName email"
-    );
+    const customers = await customerService.getAllCustomers();
     res.status(200).json(customers);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// READ ONE - Lấy thông tin chi tiết Customer
+// READ ONE - Lấy chi tiết Customer
 /**
  * @swagger
  * /api/customers/{id}:
@@ -145,8 +116,6 @@ router.get("/", authMiddleware, roleMiddleware(["Admin"]), async (req, res) => {
  *     responses:
  *       200:
  *         description: Thông tin Customer
- *       403:
- *         description: Access denied
  *       404:
  *         description: Customer not found
  *       500:
@@ -158,13 +127,9 @@ router.get(
   roleMiddleware(["Admin"]),
   async (req, res) => {
     try {
-      const customer = await Customer.findById(req.params.id).populate(
-        "userID",
-        "fullName email"
-      );
+      const customer = await customerService.getCustomerById(req.params.id);
       if (!customer)
         return res.status(404).json({ error: "Customer not found" });
-
       res.status(200).json(customer);
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -181,13 +146,6 @@ router.get(
  *     tags: [Customers]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *           example: 64f6b3c9e3a1a4321f2c1a8b
  *     requestBody:
  *       required: true
  *       content:
@@ -201,8 +159,6 @@ router.get(
  *     responses:
  *       200:
  *         description: Customer updated successfully
- *       403:
- *         description: Access denied
  *       404:
  *         description: Customer not found
  *       500:
@@ -214,14 +170,12 @@ router.put(
   roleMiddleware(["Admin"]),
   async (req, res) => {
     try {
-      const updatedCustomer = await Customer.findByIdAndUpdate(
+      const updatedCustomer = await customerService.updateCustomerById(
         req.params.id,
-        req.body,
-        { new: true }
+        req.body
       );
       if (!updatedCustomer)
         return res.status(404).json({ error: "Customer not found" });
-
       res
         .status(200)
         .json({
@@ -243,18 +197,9 @@ router.put(
  *     tags: [Customers]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *           example: 64f6b3c9e3a1a4321f2c1a8b
  *     responses:
  *       200:
  *         description: Customer deleted successfully
- *       403:
- *         description: Access denied
  *       404:
  *         description: Customer not found
  *       500:
@@ -266,10 +211,7 @@ router.delete(
   roleMiddleware(["Admin"]),
   async (req, res) => {
     try {
-      const deletedCustomer = await Customer.findByIdAndDelete(req.params.id);
-      if (!deletedCustomer)
-        return res.status(404).json({ error: "Customer not found" });
-
+      await customerService.deleteCustomerById(req.params.id);
       res.status(200).json({ message: "Customer deleted successfully" });
     } catch (err) {
       res.status(500).json({ error: err.message });

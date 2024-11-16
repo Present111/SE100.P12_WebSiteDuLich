@@ -1,8 +1,6 @@
 const express = require("express");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
 const { body, validationResult } = require("express-validator");
-const User = require("../models/User");
+const authService = require("../services/authService");
 const router = express.Router();
 
 /**
@@ -76,44 +74,8 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const {
-      userID,
-      fullName,
-      phoneNumber,
-      email,
-      userName,
-      birthDate,
-      password,
-      role,
-    } = req.body;
-
     try {
-      // Kiểm tra email hoặc username đã tồn tại
-      const existingUser = await User.findOne({
-        $or: [{ email }, { userName }],
-      });
-      if (existingUser) {
-        return res
-          .status(400)
-          .json({ error: "Email or Username already exists" });
-      }
-
-      // Hash mật khẩu
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      // Tạo người dùng mới
-      const newUser = new User({
-        userID,
-        fullName,
-        phoneNumber,
-        email,
-        userName,
-        birthDate,
-        password: hashedPassword,
-        role,
-      });
-
-      await newUser.save();
+      const newUser = await authService.registerUser(req.body);
       res
         .status(201)
         .json({ message: "User registered successfully", data: newUser });
@@ -163,28 +125,11 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { email, password } = req.body;
-
     try {
-      // Kiểm tra người dùng
-      const user = await User.findOne({ email });
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      // Kiểm tra mật khẩu
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) {
-        return res.status(400).json({ error: "Invalid credentials" });
-      }
-
-      // Tạo token JWT
-      const token = jwt.sign(
-        { id: user._id, email: user.email, role: user.role },
-        process.env.JWT_SECRET,
-        { expiresIn: "1h" }
+      const token = await authService.loginUser(
+        req.body.email,
+        req.body.password
       );
-
       res.status(200).json({ token, message: "Login successful" });
     } catch (err) {
       res.status(500).json({ error: err.message });

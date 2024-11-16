@@ -1,10 +1,9 @@
 const express = require("express");
 const { body, validationResult } = require("express-validator");
-const Service = require("../models/Service");
 const authMiddleware = require("../middlewares/authMiddleware");
 const roleMiddleware = require("../middlewares/roleMiddleware");
+const serviceService = require("../services/serviceService");
 const router = express.Router();
-const mongoose = require("mongoose");
 
 /**
  * @swagger
@@ -13,7 +12,7 @@ const mongoose = require("mongoose");
  *   description: API quản lý Services
  */
 
-// CREATE - Thêm mới Service (Chỉ Provider)
+// CREATE - Tạo mới Service
 /**
  * @swagger
  * /api/services:
@@ -57,28 +56,15 @@ const mongoose = require("mongoose");
  *     responses:
  *       201:
  *         description: Service created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: Service created successfully
- *                 data:
- *                   $ref: '#/components/schemas/Service'
  *       400:
  *         description: Validation error
- *       403:
- *         description: Access denied
  *       500:
  *         description: Server error
  */
-
 router.post(
   "/",
   authMiddleware,
-  roleMiddleware(["Provider"]), // Chỉ Provider được phép
+  roleMiddleware(["Provider"]),
   [
     body("serviceID").notEmpty().withMessage("Service ID is required"),
     body("providerID")
@@ -101,31 +87,8 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const {
-      serviceID,
-      providerID,
-      locationID,
-      serviceName,
-      price,
-      discountPrice,
-      description,
-      status,
-    } = req.body;
-
     try {
-      // Tạo Service mới
-      const newService = new Service({
-        serviceID,
-        providerID,
-        locationID,
-        serviceName,
-        price,
-        discountPrice,
-        description,
-        status,
-      });
-
-      await newService.save();
+      const newService = await serviceService.createService(req.body);
       res
         .status(201)
         .json({ message: "Service created successfully", data: newService });
@@ -134,7 +97,8 @@ router.post(
     }
   }
 );
-// READ ALL - Lấy danh sách Services (Admin hoặc Provider)
+
+// READ ALL - Lấy danh sách Services
 /**
  * @swagger
  * /api/services:
@@ -146,8 +110,6 @@ router.post(
  *     responses:
  *       200:
  *         description: Danh sách Services
- *       403:
- *         description: Access denied
  *       500:
  *         description: Server error
  */
@@ -157,7 +119,7 @@ router.get(
   roleMiddleware(["Admin", "Provider"]),
   async (req, res) => {
     try {
-      const services = await Service.find();
+      const services = await serviceService.getAllServices();
       res.status(200).json(services);
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -165,7 +127,7 @@ router.get(
   }
 );
 
-// READ ONE - Lấy thông tin chi tiết Service
+// READ ONE - Lấy chi tiết Service
 /**
  * @swagger
  * /api/services/{id}:
@@ -191,16 +153,15 @@ router.get(
  */
 router.get("/:id", authMiddleware, async (req, res) => {
   try {
-    const service = await Service.findById(req.params.id);
+    const service = await serviceService.getServiceById(req.params.id);
     if (!service) return res.status(404).json({ error: "Service not found" });
-
     res.status(200).json(service);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// DELETE - Xóa Service (Chỉ Admin hoặc Provider sở hữu)
+// DELETE - Xóa Service
 /**
  * @swagger
  * /api/services/{id}:
@@ -228,18 +189,7 @@ router.get("/:id", authMiddleware, async (req, res) => {
  */
 router.delete("/:id", authMiddleware, async (req, res) => {
   try {
-    const service = await Service.findById(req.params.id);
-
-    if (!service) {
-      return res.status(404).json({ error: "Service not found" });
-    }
-
-    // Chỉ Admin hoặc Provider sở hữu service được phép xóa
-    if (req.user.role !== "Admin" && req.user.id !== service.providerID) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-
-    await service.remove();
+    await serviceService.deleteServiceById(req.params.id, req.user);
     res.status(200).json({ message: "Service deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });

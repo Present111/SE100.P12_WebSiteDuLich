@@ -1,8 +1,8 @@
 const express = require("express");
 const { body, validationResult } = require("express-validator");
-const Location = require("../models/Location");
 const authMiddleware = require("../middlewares/authMiddleware");
 const roleMiddleware = require("../middlewares/roleMiddleware");
+const locationService = require("../services/locationService");
 const router = express.Router();
 
 /**
@@ -12,7 +12,7 @@ const router = express.Router();
  *   description: API quản lý Locations
  */
 
-// CREATE - Thêm mới Location (Chỉ Admin)
+// CREATE - Tạo mới Location
 /**
  * @swagger
  * /api/locations:
@@ -46,8 +46,6 @@ const router = express.Router();
  *     responses:
  *       201:
  *         description: Location created successfully
- *       403:
- *         description: Access denied
  *       400:
  *         description: Validation error
  *       500:
@@ -69,20 +67,8 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { locationID, locationName, description, latitude, longitude } =
-      req.body;
-
     try {
-      // Tạo Location mới
-      const newLocation = new Location({
-        locationID,
-        locationName,
-        description,
-        latitude,
-        longitude,
-      });
-
-      await newLocation.save();
+      const newLocation = await locationService.createLocation(req.body);
       res
         .status(201)
         .json({ message: "Location created successfully", data: newLocation });
@@ -92,7 +78,7 @@ router.post(
   }
 );
 
-// READ ALL - Lấy danh sách Locations (Public)
+// READ ALL - Lấy danh sách Locations
 /**
  * @swagger
  * /api/locations:
@@ -107,14 +93,14 @@ router.post(
  */
 router.get("/", async (req, res) => {
   try {
-    const locations = await Location.find();
+    const locations = await locationService.getAllLocations();
     res.status(200).json(locations);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// READ ONE - Lấy thông tin chi tiết Location (Public)
+// READ ONE - Lấy chi tiết Location
 /**
  * @swagger
  * /api/locations/{id}:
@@ -138,16 +124,15 @@ router.get("/", async (req, res) => {
  */
 router.get("/:id", async (req, res) => {
   try {
-    const location = await Location.findById(req.params.id);
+    const location = await locationService.getLocationById(req.params.id);
     if (!location) return res.status(404).json({ error: "Location not found" });
-
     res.status(200).json(location);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// UPDATE - Cập nhật Location (Chỉ Admin)
+// UPDATE - Cập nhật Location
 /**
  * @swagger
  * /api/locations/{id}:
@@ -185,8 +170,6 @@ router.get("/:id", async (req, res) => {
  *     responses:
  *       200:
  *         description: Location updated successfully
- *       403:
- *         description: Access denied
  *       404:
  *         description: Location not found
  *       500:
@@ -198,25 +181,25 @@ router.put(
   roleMiddleware(["Admin"]),
   async (req, res) => {
     try {
-      const updatedLocation = await Location.findByIdAndUpdate(
+      const updatedLocation = await locationService.updateLocationById(
         req.params.id,
-        req.body,
-        { new: true }
+        req.body
       );
       if (!updatedLocation)
         return res.status(404).json({ error: "Location not found" });
-
-      res.status(200).json({
-        message: "Location updated successfully",
-        data: updatedLocation,
-      });
+      res
+        .status(200)
+        .json({
+          message: "Location updated successfully",
+          data: updatedLocation,
+        });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
   }
 );
 
-// DELETE - Xóa Location (Chỉ Admin)
+// DELETE - Xóa Location
 /**
  * @swagger
  * /api/locations/{id}:
@@ -235,8 +218,6 @@ router.put(
  *     responses:
  *       200:
  *         description: Location deleted successfully
- *       403:
- *         description: Access denied
  *       404:
  *         description: Location not found
  *       500:
@@ -248,10 +229,7 @@ router.delete(
   roleMiddleware(["Admin"]),
   async (req, res) => {
     try {
-      const deletedLocation = await Location.findByIdAndDelete(req.params.id);
-      if (!deletedLocation)
-        return res.status(404).json({ error: "Location not found" });
-
+      await locationService.deleteLocationById(req.params.id);
       res.status(200).json({ message: "Location deleted successfully" });
     } catch (err) {
       res.status(500).json({ error: err.message });

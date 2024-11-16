@@ -1,9 +1,8 @@
 const express = require("express");
 const { body, validationResult } = require("express-validator");
-const Hotel = require("../models/Hotel");
-const Service = require("../models/Service");
 const authMiddleware = require("../middlewares/authMiddleware");
 const roleMiddleware = require("../middlewares/roleMiddleware");
+const hotelService = require("../services/hotelService");
 const router = express.Router();
 
 /**
@@ -13,7 +12,7 @@ const router = express.Router();
  *   description: API quản lý Hotels
  */
 
-// CREATE - Thêm mới Hotel (Chỉ Provider)
+// CREATE - Tạo mới Hotel
 /**
  * @swagger
  * /api/hotels:
@@ -44,8 +43,6 @@ const router = express.Router();
  *     responses:
  *       201:
  *         description: Hotel created successfully
- *       403:
- *         description: Access denied
  *       400:
  *         description: Validation error
  *       500:
@@ -54,7 +51,7 @@ const router = express.Router();
 router.post(
   "/",
   authMiddleware,
-  roleMiddleware(["Provider"]), // Chỉ Provider được phép
+  roleMiddleware(["Provider"]),
   [
     body("hotelID").notEmpty().withMessage("Hotel ID is required"),
     body("serviceID").notEmpty().withMessage("Service ID is required"),
@@ -69,30 +66,8 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { hotelID, serviceID, starRating, roomCapacity } = req.body;
-
     try {
-      // Kiểm tra Service ID có tồn tại và thuộc về Provider hiện tại hay không
-      const service = await Service.findOne({ _id: serviceID });
-      if (!service) {
-        return res.status(400).json({ error: "Service ID không tồn tại." });
-      }
-
-      if (req.user.role === "Provider" && req.user.id !== service.providerID) {
-        return res
-          .status(403)
-          .json({ error: "Bạn không có quyền tạo Hotel cho Service này." });
-      }
-
-      // Tạo Hotel mới
-      const newHotel = new Hotel({
-        hotelID,
-        serviceID,
-        starRating,
-        roomCapacity,
-      });
-
-      await newHotel.save();
+      const newHotel = await hotelService.createHotel(req.body, req.user);
       res
         .status(201)
         .json({ message: "Hotel created successfully", data: newHotel });
@@ -114,8 +89,6 @@ router.post(
  *     responses:
  *       200:
  *         description: Danh sách Hotels
- *       403:
- *         description: Access denied
  *       500:
  *         description: Server error
  */
@@ -125,10 +98,7 @@ router.get(
   roleMiddleware(["Admin", "Provider", "Customer"]),
   async (req, res) => {
     try {
-      const hotels = await Hotel.find().populate(
-        "serviceID",
-        "serviceName providerID"
-      );
+      const hotels = await hotelService.getAllHotels();
       res.status(200).json(hotels);
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -136,7 +106,7 @@ router.get(
   }
 );
 
-// READ ONE - Lấy thông tin chi tiết Hotel
+// READ ONE - Lấy chi tiết Hotel
 /**
  * @swagger
  * /api/hotels/{id}:
@@ -162,19 +132,15 @@ router.get(
  */
 router.get("/:id", authMiddleware, async (req, res) => {
   try {
-    const hotel = await Hotel.findById(req.params.id).populate(
-      "serviceID",
-      "serviceName providerID"
-    );
+    const hotel = await hotelService.getHotelById(req.params.id);
     if (!hotel) return res.status(404).json({ error: "Hotel not found" });
-
     res.status(200).json(hotel);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// DELETE - Xóa Hotel (Chỉ Admin hoặc Provider sở hữu Service)
+// DELETE - Xóa Hotel
 /**
  * @swagger
  * /api/hotels/{id}:
@@ -202,21 +168,7 @@ router.get("/:id", authMiddleware, async (req, res) => {
  */
 router.delete("/:id", authMiddleware, async (req, res) => {
   try {
-    const hotel = await Hotel.findById(req.params.id).populate("serviceID");
-
-    if (!hotel) {
-      return res.status(404).json({ error: "Hotel not found" });
-    }
-
-    // Chỉ Admin hoặc Provider sở hữu Service được phép xóa
-    if (
-      req.user.role !== "Admin" &&
-      req.user.id !== hotel.serviceID.providerID
-    ) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-
-    await hotel.remove();
+    await hotelService.deleteHotelById(req.params.id, req.user);
     res.status(200).json({ message: "Hotel deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });

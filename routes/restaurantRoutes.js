@@ -1,9 +1,8 @@
 const express = require("express");
 const { body, validationResult } = require("express-validator");
-const Restaurant = require("../models/Restaurant");
-const Service = require("../models/Service");
 const authMiddleware = require("../middlewares/authMiddleware");
 const roleMiddleware = require("../middlewares/roleMiddleware");
+const restaurantService = require("../services/restaurantService");
 const router = express.Router();
 
 /**
@@ -13,7 +12,7 @@ const router = express.Router();
  *   description: API quản lý Restaurants
  */
 
-// CREATE - Thêm mới Restaurant (Chỉ Provider)
+// CREATE - Tạo mới Restaurant
 /**
  * @swagger
  * /api/restaurants:
@@ -44,8 +43,6 @@ const router = express.Router();
  *     responses:
  *       201:
  *         description: Restaurant created successfully
- *       403:
- *         description: Access denied
  *       400:
  *         description: Validation error
  *       500:
@@ -54,7 +51,7 @@ const router = express.Router();
 router.post(
   "/",
   authMiddleware,
-  roleMiddleware(["Provider"]), // Chỉ Provider được phép
+  roleMiddleware(["Provider"]),
   [
     body("restaurantID").notEmpty().withMessage("Restaurant ID is required"),
     body("serviceID").notEmpty().withMessage("Service ID is required"),
@@ -69,34 +66,17 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { restaurantID, serviceID, cuisineType, seatingCapacity } = req.body;
-
     try {
-      // Kiểm tra Service ID có tồn tại và thuộc về Provider hiện tại hay không
-      const service = await Service.findOne({ _id: serviceID });
-      if (!service) {
-        return res.status(400).json({ error: "Service ID không tồn tại." });
-      }
-
-      if (req.user.role === "Provider" && req.user.id !== service.providerID) {
-        return res.status(403).json({
-          error: "Bạn không có quyền tạo Restaurant cho Service này.",
+      const newRestaurant = await restaurantService.createRestaurant(
+        req.body,
+        req.user
+      );
+      res
+        .status(201)
+        .json({
+          message: "Restaurant created successfully",
+          data: newRestaurant,
         });
-      }
-
-      // Tạo Restaurant mới
-      const newRestaurant = new Restaurant({
-        restaurantID,
-        serviceID,
-        cuisineType,
-        seatingCapacity,
-      });
-
-      await newRestaurant.save();
-      res.status(201).json({
-        message: "Restaurant created successfully",
-        data: newRestaurant,
-      });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -115,8 +95,6 @@ router.post(
  *     responses:
  *       200:
  *         description: Danh sách Restaurants
- *       403:
- *         description: Access denied
  *       500:
  *         description: Server error
  */
@@ -126,10 +104,7 @@ router.get(
   roleMiddleware(["Admin", "Provider", "Customer"]),
   async (req, res) => {
     try {
-      const restaurants = await Restaurant.find().populate(
-        "serviceID",
-        "serviceName providerID"
-      );
+      const restaurants = await restaurantService.getAllRestaurants();
       res.status(200).json(restaurants);
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -137,7 +112,7 @@ router.get(
   }
 );
 
-// READ ONE - Lấy thông tin chi tiết Restaurant
+// READ ONE - Lấy chi tiết Restaurant
 /**
  * @swagger
  * /api/restaurants/{id}:
@@ -163,20 +138,16 @@ router.get(
  */
 router.get("/:id", authMiddleware, async (req, res) => {
   try {
-    const restaurant = await Restaurant.findById(req.params.id).populate(
-      "serviceID",
-      "serviceName providerID"
-    );
+    const restaurant = await restaurantService.getRestaurantById(req.params.id);
     if (!restaurant)
       return res.status(404).json({ error: "Restaurant not found" });
-
     res.status(200).json(restaurant);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// DELETE - Xóa Restaurant (Chỉ Admin hoặc Provider sở hữu Service)
+// DELETE - Xóa Restaurant
 /**
  * @swagger
  * /api/restaurants/{id}:
@@ -204,23 +175,7 @@ router.get("/:id", authMiddleware, async (req, res) => {
  */
 router.delete("/:id", authMiddleware, async (req, res) => {
   try {
-    const restaurant = await Restaurant.findById(req.params.id).populate(
-      "serviceID"
-    );
-
-    if (!restaurant) {
-      return res.status(404).json({ error: "Restaurant not found" });
-    }
-
-    // Chỉ Admin hoặc Provider sở hữu Service được phép xóa
-    if (
-      req.user.role !== "Admin" &&
-      req.user.id !== restaurant.serviceID.providerID
-    ) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-
-    await restaurant.remove();
+    await restaurantService.deleteRestaurantById(req.params.id, req.user);
     res.status(200).json({ message: "Restaurant deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
