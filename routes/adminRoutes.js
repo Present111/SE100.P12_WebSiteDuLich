@@ -12,7 +12,50 @@ const router = express.Router();
  *   description: API quản lý Admins (Chỉ Admin)
  */
 
-// CREATE - Tạo mới Admin
+/**
+ * @swagger
+ * /admins:
+ *   post:
+ *     tags:
+ *       - Admins
+ *     summary: Tạo mới Admin
+ *     description: API này tạo mới một Admin, chỉ có quyền Admin mới thực hiện được.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               userID:
+ *                 type: string
+ *                 description: ID của người dùng.
+ *                 example: "12345"
+ *               accessLevel:
+ *                 type: string
+ *                 description: Cấp độ quyền truy cập của Admin.
+ *                 example: "SuperAdmin"
+ *     responses:
+ *       201:
+ *         description: Tạo mới Admin thành công.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Admin created successfully"
+ *                 data:
+ *                   type: object
+ *                   description: Thông tin chi tiết của Admin vừa được tạo.
+ *       400:
+ *         description: Lỗi do dữ liệu không hợp lệ.
+ *       500:
+ *         description: Lỗi máy chủ.
+ */
 router.post(
   "/",
   authMiddleware,
@@ -38,7 +81,38 @@ router.post(
   }
 );
 
-// READ ALL - Lấy danh sách Admins
+/**
+ * @swagger
+ * /admins:
+ *   get:
+ *     tags:
+ *       - Admins
+ *     summary: Lấy danh sách Admins
+ *     description: API này trả về danh sách tất cả các Admin. Chỉ có quyền Admin mới thực hiện được.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lấy danh sách Admins thành công.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                     description: ID của Admin.
+ *                   userID:
+ *                     type: string
+ *                     description: ID người dùng của Admin.
+ *                   accessLevel:
+ *                     type: string
+ *                     description: Cấp độ quyền truy cập.
+ *       500:
+ *         description: Lỗi máy chủ.
+ */
 router.get("/", authMiddleware, roleMiddleware(["Admin"]), async (req, res) => {
   try {
     const admins = await adminService.getAllAdmins();
@@ -48,7 +122,31 @@ router.get("/", authMiddleware, roleMiddleware(["Admin"]), async (req, res) => {
   }
 });
 
-// READ ONE - Lấy thông tin chi tiết Admin
+/**
+ * @swagger
+ * /admins/{id}:
+ *   get:
+ *     tags:
+ *       - Admins
+ *     summary: Lấy thông tin chi tiết Admin
+ *     description: API này trả về thông tin chi tiết của một Admin dựa trên ID.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID của Admin cần lấy thông tin.
+ *     responses:
+ *       200:
+ *         description: Lấy thông tin thành công.
+ *       404:
+ *         description: Admin không tồn tại.
+ *       500:
+ *         description: Lỗi máy chủ.
+ */
 router.get(
   "/:id",
   authMiddleware,
@@ -64,7 +162,38 @@ router.get(
   }
 );
 
-// UPDATE - Cập nhật Admin
+/**
+ * @swagger
+ * /admins/{id}:
+ *   put:
+ *     tags:
+ *       - Admins
+ *     summary: Cập nhật Admin
+ *     description: API này cập nhật thông tin của một Admin dựa trên ID.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID của Admin cần cập nhật.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             description: Thông tin cần cập nhật.
+ *     responses:
+ *       200:
+ *         description: Cập nhật thành công.
+ *       404:
+ *         description: Admin không tồn tại.
+ *       500:
+ *         description: Lỗi máy chủ.
+ */
 router.put(
   "/:id",
   authMiddleware,
@@ -86,7 +215,29 @@ router.put(
   }
 );
 
-// DELETE - Xóa Admin
+/**
+ * @swagger
+ * /admins/{id}:
+ *   delete:
+ *     tags:
+ *       - Admins
+ *     summary: Xóa Admin
+ *     description: API này xóa một Admin dựa trên ID.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID của Admin cần xóa.
+ *     responses:
+ *       200:
+ *         description: Xóa thành công.
+ *       500:
+ *         description: Lỗi máy chủ.
+ */
 router.delete(
   "/:id",
   authMiddleware,
