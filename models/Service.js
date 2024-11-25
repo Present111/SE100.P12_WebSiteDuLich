@@ -21,6 +21,15 @@ const serviceSchema = new mongoose.Schema({
     enum: ["Active", "Inactive"], // Đảm bảo đúng giá trị hợp lệ
     required: true,
   },
+  facilities: [
+    { type: mongoose.Schema.Types.ObjectId, ref: "FacilityType" }, // Thêm mảng tiện nghi
+  ],
+  priceCategories: [
+    { type: mongoose.Schema.Types.ObjectId, ref: "PriceCategory" }, // Thêm mảng bảng giá
+  ],
+  suitability: [
+    { type: mongoose.Schema.Types.ObjectId, ref: "Suitability" }, // Thêm mảng mục phù hợp
+  ],
 });
 
 module.exports = mongoose.model("Service", serviceSchema);

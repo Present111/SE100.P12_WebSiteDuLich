@@ -53,6 +53,21 @@ const router = express.Router();
  *                 type: string
  *                 enum: [Active, Inactive]
  *                 example: Active
+ *               facilities:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["64f6b3c9e3a1a4321f2c1a8b"]
+ *               priceCategories:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["64f6b3c9e3a1a4321f2c1a8b"]
+ *               suitability:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["64f6b3c9e3a1a4321f2c1a8b"]
  *     responses:
  *       201:
  *         description: Service created successfully
@@ -80,6 +95,18 @@ router.post(
       .isNumeric()
       .withMessage("Discount Price must be a number"),
     body("status").isIn(["Active", "Inactive"]).withMessage("Invalid status"),
+    body("facilities")
+      .optional()
+      .isArray()
+      .withMessage("Facilities must be an array of IDs"),
+    body("priceCategories")
+      .optional()
+      .isArray()
+      .withMessage("Price categories must be an array of IDs"),
+    body("suitability")
+      .optional()
+      .isArray()
+      .withMessage("Suitability must be an array of IDs"),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -88,6 +115,7 @@ router.post(
     }
 
     try {
+      // Tạo service với tiện nghi, bảng giá, và phù hợp
       const newService = await serviceService.createService(req.body);
       res
         .status(201)

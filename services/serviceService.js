@@ -1,8 +1,11 @@
 const Service = require("../models/Service");
+const FacilityType = require("../models/FacilityType");
+const PriceCategory = require("../models/PriceCategory");
+const Suitability = require("../models/Suitability");
 
 /**
  * Tạo một Service mới
- * @param {Object} serviceData - Dữ liệu của Service
+ * @param {Object} serviceData - Dữ liệu từ request body
  * @returns {Object} - Service vừa tạo
  */
 const createService = async (serviceData) => {
@@ -15,8 +18,37 @@ const createService = async (serviceData) => {
     discountPrice,
     description,
     status,
+    facilities,
+    priceCategories,
+    suitability,
   } = serviceData;
 
+  // Kiểm tra tiện nghi
+  if (facilities) {
+    for (const facilityID of facilities) {
+      const facility = await FacilityType.findById(facilityID);
+      if (!facility) throw new Error(`FacilityType not found: ${facilityID}`);
+    }
+  }
+
+  // Kiểm tra bảng giá
+  if (priceCategories) {
+    for (const priceCategoryID of priceCategories) {
+      const priceCategory = await PriceCategory.findById(priceCategoryID);
+      if (!priceCategory)
+        throw new Error(`PriceCategory not found: ${priceCategoryID}`);
+    }
+  }
+
+  // Kiểm tra mục phù hợp
+  if (suitability) {
+    for (const suitabilityID of suitability) {
+      const suitable = await Suitability.findById(suitabilityID);
+      if (!suitable) throw new Error(`Suitability not found: ${suitabilityID}`);
+    }
+  }
+
+  // Tạo service
   const newService = new Service({
     serviceID,
     providerID,
@@ -26,6 +58,9 @@ const createService = async (serviceData) => {
     discountPrice,
     description,
     status,
+    facilities,
+    priceCategories,
+    suitability,
   });
 
   return await newService.save();
