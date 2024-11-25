@@ -68,6 +68,11 @@ const router = express.Router();
  *                 items:
  *                   type: string
  *                 example: ["64f6b3c9e3a1a4321f2c1a8b"]
+ *               reviews:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["64f6b3c9e3a1a4321f2c1a8b"]
  *     responses:
  *       201:
  *         description: Service created successfully
@@ -107,6 +112,10 @@ router.post(
       .optional()
       .isArray()
       .withMessage("Suitability must be an array of IDs"),
+    body("reviews")
+      .optional()
+      .isArray()
+      .withMessage("Reviews must be an array of IDs"),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -115,8 +124,79 @@ router.post(
     }
 
     try {
-      // Tạo service với tiện nghi, bảng giá, và phù hợp
-      const newService = await serviceService.createService(req.body);
+      const {
+        serviceID,
+        providerID,
+        locationID,
+        serviceName,
+        price,
+        discountPrice,
+        description,
+        status,
+        facilities,
+        priceCategories,
+        suitability,
+        reviews,
+      } = req.body;
+
+      // Kiểm tra tính hợp lệ của các ID trong mảng liên kết
+      const invalidFacilities = await serviceService.validateFacilityIDs(
+        facilities || []
+      );
+      const invalidPriceCategories =
+        await serviceService.validatePriceCategoryIDs(priceCategories || []);
+      const invalidSuitability = await serviceService.validateSuitabilityIDs(
+        suitability || []
+      );
+      const invalidReviews = await serviceService.validateReviewIDs(
+        reviews || []
+      );
+
+      if (invalidFacilities.length > 0) {
+        return res
+          .status(400)
+          .json({
+            error: `Invalid facility IDs: ${invalidFacilities.join(", ")}`,
+          });
+      }
+      if (invalidPriceCategories.length > 0) {
+        return res
+          .status(400)
+          .json({
+            error: `Invalid price category IDs: ${invalidPriceCategories.join(
+              ", "
+            )}`,
+          });
+      }
+      if (invalidSuitability.length > 0) {
+        return res
+          .status(400)
+          .json({
+            error: `Invalid suitability IDs: ${invalidSuitability.join(", ")}`,
+          });
+      }
+      if (invalidReviews.length > 0) {
+        return res
+          .status(400)
+          .json({ error: `Invalid review IDs: ${invalidReviews.join(", ")}` });
+      }
+
+      // Tạo Service mới
+      const newService = await serviceService.createService({
+        serviceID,
+        providerID,
+        locationID,
+        serviceName,
+        price,
+        discountPrice,
+        description,
+        status,
+        facilities,
+        priceCategories,
+        suitability,
+        reviews,
+      });
+
       res
         .status(201)
         .json({ message: "Service created successfully", data: newService });
