@@ -2,6 +2,7 @@ const express = require("express");
 const { body, validationResult } = require("express-validator");
 const authMiddleware = require("../middlewares/authMiddleware");
 const roleMiddleware = require("../middlewares/roleMiddleware");
+const upload = require("../middlewares/uploadMiddleware");
 const tableService = require("../services/tableService");
 const router = express.Router();
 
@@ -12,7 +13,7 @@ const router = express.Router();
  *   description: API quản lý Tables
  */
 
-// CREATE - Thêm mới Table
+// CREATE - Tạo mới Table
 /**
  * @swagger
  * /api/tables:
@@ -24,7 +25,7 @@ const router = express.Router();
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
@@ -41,6 +42,12 @@ const router = express.Router();
  *                 type: string
  *                 format: date
  *                 example: 2024-01-01
+ *               active:
+ *                 type: boolean
+ *                 example: true
+ *               picture:
+ *                 type: string
+ *                 format: binary
  *     responses:
  *       201:
  *         description: Table created successfully
@@ -55,11 +62,16 @@ router.post(
   "/",
   authMiddleware,
   roleMiddleware(["Provider"]),
+  upload.single("picture"),
   [
     body("tableID").notEmpty().withMessage("Table ID is required"),
     body("restaurantID").notEmpty().withMessage("Restaurant ID is required"),
     body("tableType").notEmpty().withMessage("Table Type is required"),
     body("availableDate").isISO8601().withMessage("Invalid date format"),
+    body("active")
+      .optional()
+      .isBoolean()
+      .withMessage("Active must be a boolean"),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -68,7 +80,12 @@ router.post(
     }
 
     try {
-      const newTable = await tableService.createTable(req.body, req.user);
+      const picturePath = req.file ? `/uploads/${req.file.filename}` : null;
+      const newTable = await tableService.createTable(
+        req.body,
+        req.user,
+        picturePath
+      );
       res
         .status(201)
         .json({ message: "Table created successfully", data: newTable });
@@ -141,6 +158,61 @@ router.get("/:id", authMiddleware, async (req, res) => {
   }
 });
 
+// UPDATE - Cập nhật thông tin Table
+/**
+ * @swagger
+ * /api/tables/{id}:
+ *   put:
+ *     summary: Cập nhật thông tin một Table
+ *     tags: [Tables]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           example: 64f6b3c9e3a1a4321f2c1a8b
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               tableType:
+ *                 type: string
+ *                 example: Indoor
+ *               availableDate:
+ *                 type: string
+ *                 format: date
+ *                 example: 2024-01-15
+ *               active:
+ *                 type: boolean
+ *                 example: false
+ *     responses:
+ *       200:
+ *         description: Table updated successfully
+ *       404:
+ *         description: Table not found
+ *       500:
+ *         description: Server error
+ */
+router.put("/:id", authMiddleware, async (req, res) => {
+  try {
+    const updatedTable = await tableService.updateTableById(
+      req.params.id,
+      req.body
+    );
+    res
+      .status(200)
+      .json({ message: "Table updated successfully", data: updatedTable });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // DELETE - Xóa Table
 /**
  * @swagger
@@ -160,8 +232,6 @@ router.get("/:id", authMiddleware, async (req, res) => {
  *     responses:
  *       200:
  *         description: Table deleted successfully
- *       403:
- *         description: Access denied
  *       404:
  *         description: Table not found
  *       500:
@@ -169,7 +239,7 @@ router.get("/:id", authMiddleware, async (req, res) => {
  */
 router.delete("/:id", authMiddleware, async (req, res) => {
   try {
-    await tableService.deleteTableById(req.params.id, req.user);
+    await tableService.deleteTableById(req.params.id);
     res.status(200).json({ message: "Table deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -2,6 +2,7 @@ const express = require("express");
 const { body, validationResult } = require("express-validator");
 const authMiddleware = require("../middlewares/authMiddleware");
 const roleMiddleware = require("../middlewares/roleMiddleware");
+const upload = require("../middlewares/uploadMiddleware");
 const roomService = require("../services/roomService");
 const router = express.Router();
 
@@ -24,13 +25,13 @@ const router = express.Router();
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
  *               roomID:
  *                 type: string
- *                 example: RM001
+ *                 example: R001
  *               hotelID:
  *                 type: string
  *                 example: H001
@@ -39,14 +40,22 @@ const router = express.Router();
  *                 example: Deluxe
  *               availableRooms:
  *                 type: number
- *                 example: 10
+ *                 example: 5
  *               availableDate:
  *                 type: string
  *                 format: date
  *                 example: 2024-01-01
+ *               active:
+ *                 type: boolean
+ *                 example: true
+ *               picture:
+ *                 type: string
+ *                 format: binary
  *     responses:
  *       201:
  *         description: Room created successfully
+ *       403:
+ *         description: Access denied
  *       400:
  *         description: Validation error
  *       500:
@@ -56,14 +65,19 @@ router.post(
   "/",
   authMiddleware,
   roleMiddleware(["Provider"]),
+  upload.single("picture"),
   [
     body("roomID").notEmpty().withMessage("Room ID is required"),
     body("hotelID").notEmpty().withMessage("Hotel ID is required"),
     body("roomType").notEmpty().withMessage("Room Type is required"),
     body("availableRooms")
-      .isNumeric()
-      .withMessage("Available Rooms must be a number"),
+      .isInt()
+      .withMessage("Available Rooms must be an integer"),
     body("availableDate").isISO8601().withMessage("Invalid date format"),
+    body("active")
+      .optional()
+      .isBoolean()
+      .withMessage("Active must be a boolean"),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -72,7 +86,12 @@ router.post(
     }
 
     try {
-      const newRoom = await roomService.createRoom(req.body, req.user);
+      const picturePath = req.file ? `/uploads/${req.file.filename}` : null;
+      const newRoom = await roomService.createRoom(
+        req.body,
+        req.user,
+        picturePath
+      );
       res
         .status(201)
         .json({ message: "Room created successfully", data: newRoom });
@@ -111,7 +130,7 @@ router.get(
   }
 );
 
-// READ ONE - Lấy chi tiết Room
+// READ ONE - Lấy chi tiết Room theo ID
 /**
  * @swagger
  * /api/rooms/{id}:
@@ -145,6 +164,64 @@ router.get("/:id", authMiddleware, async (req, res) => {
   }
 });
 
+// UPDATE - Cập nhật thông tin Room
+/**
+ * @swagger
+ * /api/rooms/{id}:
+ *   put:
+ *     summary: Cập nhật thông tin một Room
+ *     tags: [Rooms]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           example: 64f6b3c9e3a1a4321f2c1a8b
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               roomType:
+ *                 type: string
+ *                 example: Standard
+ *               availableRooms:
+ *                 type: number
+ *                 example: 10
+ *               availableDate:
+ *                 type: string
+ *                 format: date
+ *                 example: 2024-01-15
+ *               active:
+ *                 type: boolean
+ *                 example: false
+ *     responses:
+ *       200:
+ *         description: Room updated successfully
+ *       404:
+ *         description: Room not found
+ *       500:
+ *         description: Server error
+ */
+router.put("/:id", authMiddleware, async (req, res) => {
+  try {
+    const updatedRoom = await roomService.updateRoomById(
+      req.params.id,
+      req.body
+    );
+    res
+      .status(200)
+      .json({ message: "Room updated successfully", data: updatedRoom });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // DELETE - Xóa Room
 /**
  * @swagger
@@ -164,8 +241,6 @@ router.get("/:id", authMiddleware, async (req, res) => {
  *     responses:
  *       200:
  *         description: Room deleted successfully
- *       403:
- *         description: Access denied
  *       404:
  *         description: Room not found
  *       500:
@@ -173,7 +248,7 @@ router.get("/:id", authMiddleware, async (req, res) => {
  */
 router.delete("/:id", authMiddleware, async (req, res) => {
   try {
-    await roomService.deleteRoomById(req.params.id, req.user);
+    await roomService.deleteRoomById(req.params.id);
     res.status(200).json({ message: "Room deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
