@@ -7,9 +7,14 @@ const coffeeSchema = new mongoose.Schema({
     ref: "Service",
     required: true,
   },
-  coffeeType: { type: String, required: true },
+  coffeeTypes: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "CoffeeType", // Tham chiếu đến bảng CoffeeType
+    },
+  ], // Mảng các loại cà phê
   averagePrice: { type: Number, required: true },
-  picture: { type: String }, // Đường dẫn ảnh
+  pictures: [{ type: String }], // Mảng đường dẫn ảnh
 });
 
 module.exports = mongoose.model("Coffee", coffeeSchema);

@@ -35,15 +35,19 @@ const router = express.Router();
  *               serviceID:
  *                 type: string
  *                 example: 64f6b3c9e3a1a4321f2c1a8b
- *               coffeeType:
- *                 type: string
- *                 example: Espresso
+ *               coffeeTypes:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["64f6b3c9e3a1a4321f2c1a8c", "64f6b3c9e3a1a4321f2c1a8d"]
  *               averagePrice:
  *                 type: number
  *                 example: 50
- *               picture:
- *                 type: string
- *                 format: binary
+ *               pictures:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
  *     responses:
  *       201:
  *         description: Coffee created successfully
@@ -56,7 +60,17 @@ router.post(
   "/",
   authMiddleware,
   roleMiddleware(["Provider"]),
-  upload.single("picture"),
+  upload.array("pictures", 5), // Hỗ trợ tải lên tối đa 5 ảnh
+  [
+    body("coffeeID").notEmpty().withMessage("Coffee ID is required"),
+    body("serviceID").notEmpty().withMessage("Service ID is required"),
+    body("coffeeTypes")
+      .isArray({ min: 1 })
+      .withMessage("Coffee Types must be a non-empty array"),
+    body("averagePrice")
+      .isNumeric()
+      .withMessage("Average Price must be a valid number"),
+  ],
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -64,11 +78,11 @@ router.post(
     }
 
     try {
-      const picturePath = req.file ? `/uploads/${req.file.filename}` : null;
+      const picturePaths = req.files.map((file) => `/uploads/${file.filename}`);
       const newCoffee = await coffeeService.createCoffee(
         req.body,
         req.user,
-        picturePath
+        picturePaths
       );
       res
         .status(201)
