@@ -1,5 +1,6 @@
 const Hotel = require("../models/Hotel");
 const Service = require("../models/Service");
+const HotelType = require("../models/HotelType");
 
 /**
  * Tạo một Hotel mới
@@ -8,7 +9,8 @@ const Service = require("../models/Service");
  * @returns {Object} - Hotel vừa tạo
  */
 const createHotel = async (hotelData, user) => {
-  const { hotelID, serviceID, starRating, roomCapacity } = hotelData;
+  const { hotelID, serviceID, starRating, roomCapacity, hotelTypeID } =
+    hotelData;
 
   // Kiểm tra Service ID
   const service = await Service.findOne({ _id: serviceID });
@@ -17,15 +19,23 @@ const createHotel = async (hotelData, user) => {
   }
 
   // Kiểm tra quyền của Provider
-  if (user.role === "Provider" && user.id !== service.providerID) {
+  if (user.role === "Provider" && user.id !== service.providerID.toString()) {
     throw new Error("Bạn không có quyền tạo Hotel cho Service này.");
   }
 
+  // Kiểm tra HotelType ID
+  const hotelType = await HotelType.findById(hotelTypeID);
+  if (!hotelType) {
+    throw new Error("Hotel Type ID không tồn tại.");
+  }
+
+  // Tạo Hotel mới
   const newHotel = new Hotel({
     hotelID,
     serviceID,
     starRating,
     roomCapacity,
+    hotelTypeID, // Gắn loại Hotel
   });
 
   return await newHotel.save();

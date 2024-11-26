@@ -36,10 +36,16 @@ const router = express.Router();
  *                 example: S001
  *               starRating:
  *                 type: number
- *                 example: 5
+ *                 minimum: 1
+ *                 maximum: 5
+ *                 example: 4.5
  *               roomCapacity:
  *                 type: number
+ *                 minimum: 1
  *                 example: 100
+ *               hotelTypeID:
+ *                 type: string
+ *                 example: 64f6b3c9e3a1a4321f2c1a8b
  *     responses:
  *       201:
  *         description: Hotel created successfully
@@ -55,10 +61,21 @@ router.post(
   [
     body("hotelID").notEmpty().withMessage("Hotel ID is required"),
     body("serviceID").notEmpty().withMessage("Service ID is required"),
-    body("starRating").isNumeric().withMessage("Star Rating must be a number"),
+    body("starRating")
+      .isNumeric()
+      .withMessage("Star Rating must be a number")
+      .isFloat({ min: 1, max: 5 })
+      .withMessage("Star Rating must be between 1 and 5"),
     body("roomCapacity")
       .isNumeric()
-      .withMessage("Room Capacity must be a number"),
+      .withMessage("Room Capacity must be a number")
+      .isInt({ min: 1 })
+      .withMessage("Room Capacity must be at least 1"),
+    body("hotelTypeID")
+      .notEmpty()
+      .withMessage("Hotel Type ID is required")
+      .isMongoId()
+      .withMessage("Hotel Type ID must be a valid Mongo ID"),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -67,7 +84,13 @@ router.post(
     }
 
     try {
-      const newHotel = await hotelService.createHotel(req.body, req.user);
+      const { hotelID, serviceID, starRating, roomCapacity, hotelTypeID } =
+        req.body;
+
+      const newHotel = await hotelService.createHotel(
+        { hotelID, serviceID, starRating, roomCapacity, hotelTypeID },
+        req.user
+      );
       res
         .status(201)
         .json({ message: "Hotel created successfully", data: newHotel });
