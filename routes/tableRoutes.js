@@ -2,7 +2,7 @@ const express = require("express");
 const { body, validationResult } = require("express-validator");
 const authMiddleware = require("../middlewares/authMiddleware");
 const roleMiddleware = require("../middlewares/roleMiddleware");
-const upload = require("../middlewares/uploadMiddleware");
+const upload = require("../middlewares/uploadMiddleware"); // Middleware upload
 const tableService = require("../services/tableService");
 const router = express.Router();
 
@@ -51,9 +51,11 @@ const router = express.Router();
  *               active:
  *                 type: boolean
  *                 example: true
- *               picture:
- *                 type: string
- *                 format: binary
+ *               pictures:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
  *               facilities:
  *                 type: array
  *                 items:
@@ -73,7 +75,7 @@ router.post(
   "/",
   authMiddleware,
   roleMiddleware(["Provider"]),
-  upload.single("picture"),
+  upload.array("pictures"), // Hỗ trợ tải lên nhiều file
   [
     body("tableID").notEmpty().withMessage("Table ID is required"),
     body("restaurantID").notEmpty().withMessage("Restaurant ID is required"),
@@ -117,7 +119,8 @@ router.post(
         facilities,
       } = req.body;
 
-      const picturePath = req.file ? `/uploads/${req.file.filename}` : null;
+      // Lấy danh sách đường dẫn ảnh tải lên
+      const picturePaths = req.files.map((file) => `/uploads/${file.filename}`);
 
       const newTable = await tableService.createTable({
         tableID,
@@ -128,7 +131,7 @@ router.post(
         discountPrice,
         active,
         facilities,
-        picture: picturePath,
+        pictures: picturePaths, // Gán mảng đường dẫn ảnh
       });
 
       res

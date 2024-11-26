@@ -67,6 +67,14 @@ const serviceSchema = new mongoose.Schema({
       ref: "Review",
     },
   ],
+
+  // Mảng hình ảnh
+  images: [
+    {
+      type: String, // Lưu đường dẫn tới ảnh
+      required: true,
+    },
+  ],
 });
 
 module.exports = mongoose.model("Service", serviceSchema);

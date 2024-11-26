@@ -37,9 +37,11 @@ const roomSchema = new mongoose.Schema({
       message: "Discount price must be less than the original price.",
     },
   }, // Giá giảm
-  picture: {
-    type: String,
-  }, // Link hình ảnh
+  pictures: [
+    {
+      type: String, // URL ảnh dưới dạng chuỗi
+    },
+  ], // Mảng ảnh (nhiều URL)
   active: {
     type: Boolean,
     default: true,

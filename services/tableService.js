@@ -1,8 +1,9 @@
 const Table = require("../models/Table");
 const Restaurant = require("../models/Restaurant");
+const Facility = require("../models/Facility");
 
 // Tạo Table mới
-const createTable = async (tableData, user, picturePath) => {
+const createTable = async (tableData, user, picturePaths) => {
   const {
     tableID,
     restaurantID,
@@ -53,7 +54,7 @@ const createTable = async (tableData, user, picturePath) => {
     price,
     discountPrice,
     active: active ?? true, // Nếu không cung cấp, mặc định là true
-    picture: picturePath,
+    pictures: picturePaths, // Lưu mảng đường dẫn ảnh
     facilities, // Lưu danh sách tiện ích
   });
 

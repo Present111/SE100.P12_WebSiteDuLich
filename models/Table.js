@@ -33,9 +33,11 @@ const tableSchema = new mongoose.Schema({
       message: "Discount price must be less than the original price.",
     },
   }, // Giá giảm
-  picture: {
-    type: String,
-  }, // Link hình ảnh
+  pictures: [
+    {
+      type: String,
+    },
+  ], // Mảng đường dẫn ảnh
   active: {
     type: Boolean,
     default: true,

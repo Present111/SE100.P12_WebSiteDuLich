@@ -54,9 +54,11 @@ const router = express.Router();
  *               active:
  *                 type: boolean
  *                 example: true
- *               picture:
- *                 type: string
- *                 format: binary
+ *               pictures:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
  *               capacity:
  *                 type: object
  *                 properties:
@@ -85,7 +87,7 @@ router.post(
   "/",
   authMiddleware,
   roleMiddleware(["Provider"]),
-  upload.single("picture"),
+  upload.array("pictures", 5), // Cho phép upload tối đa 5 ảnh
   [
     body("roomID").notEmpty().withMessage("Room ID is required"),
     body("hotelID").notEmpty().withMessage("Hotel ID is required"),
@@ -140,8 +142,10 @@ router.post(
         facilities,
       } = req.body;
 
-      const picturePath = req.file ? `/uploads/${req.file.filename}` : null;
+      // Lưu đường dẫn của tất cả các ảnh đã tải lên
+      const pictures = req.files.map((file) => `/uploads/${file.filename}`);
 
+      // Gọi dịch vụ để tạo Room mới
       const newRoom = await roomService.createRoom({
         roomID,
         hotelID,
@@ -153,7 +157,7 @@ router.post(
         active,
         capacity,
         facilities,
-        picture: picturePath,
+        pictures, // Gửi danh sách đường dẫn ảnh
       });
 
       res

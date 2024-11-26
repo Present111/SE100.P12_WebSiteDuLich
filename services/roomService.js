@@ -3,7 +3,7 @@ const Hotel = require("../models/Hotel");
 const Facility = require("../models/Facility");
 
 // Tạo Room mới
-const createRoom = async (roomData, user, picturePath) => {
+const createRoom = async (roomData, user, picturePaths) => {
   const {
     roomID,
     hotelID,
@@ -61,6 +61,15 @@ const createRoom = async (roomData, user, picturePath) => {
     }
   }
 
+  // Kiểm tra danh sách ảnh tải lên
+  if (
+    !picturePaths ||
+    !Array.isArray(picturePaths) ||
+    picturePaths.length === 0
+  ) {
+    throw new Error("Ít nhất một ảnh phải được cung cấp.");
+  }
+
   // Tạo Room mới
   const newRoom = new Room({
     roomID,
@@ -71,7 +80,7 @@ const createRoom = async (roomData, user, picturePath) => {
     price,
     discountPrice,
     active: active ?? true, // Nếu không cung cấp, mặc định là true
-    picture: picturePath,
+    pictures: picturePaths, // Lưu danh sách đường dẫn ảnh
     capacity: {
       adults,
       children,

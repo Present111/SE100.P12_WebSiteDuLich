@@ -2,6 +2,7 @@ const express = require("express");
 const { body, validationResult } = require("express-validator");
 const authMiddleware = require("../middlewares/authMiddleware");
 const roleMiddleware = require("../middlewares/roleMiddleware");
+const upload = require("../middlewares/uploadMiddleware");
 const serviceService = require("../services/serviceService");
 const router = express.Router();
 
@@ -24,7 +25,7 @@ const router = express.Router();
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
@@ -73,6 +74,12 @@ const router = express.Router();
  *                 items:
  *                   type: string
  *                 example: ["64f6b3c9e3a1a4321f2c1a8b"]
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *                 example: ["image1.jpg", "image2.jpg"]
  *     responses:
  *       201:
  *         description: Service created successfully
@@ -85,6 +92,7 @@ router.post(
   "/",
   authMiddleware,
   roleMiddleware(["Provider"]),
+  upload.array("images", 10), // Cho phép upload tối đa 10 ảnh
   [
     body("serviceID").notEmpty().withMessage("Service ID is required"),
     body("providerID")
@@ -139,47 +147,8 @@ router.post(
         reviews,
       } = req.body;
 
-      // Kiểm tra tính hợp lệ của các ID trong mảng liên kết
-      const invalidFacilities = await serviceService.validateFacilityIDs(
-        facilities || []
-      );
-      const invalidPriceCategories =
-        await serviceService.validatePriceCategoryIDs(priceCategories || []);
-      const invalidSuitability = await serviceService.validateSuitabilityIDs(
-        suitability || []
-      );
-      const invalidReviews = await serviceService.validateReviewIDs(
-        reviews || []
-      );
-
-      if (invalidFacilities.length > 0) {
-        return res
-          .status(400)
-          .json({
-            error: `Invalid facility IDs: ${invalidFacilities.join(", ")}`,
-          });
-      }
-      if (invalidPriceCategories.length > 0) {
-        return res
-          .status(400)
-          .json({
-            error: `Invalid price category IDs: ${invalidPriceCategories.join(
-              ", "
-            )}`,
-          });
-      }
-      if (invalidSuitability.length > 0) {
-        return res
-          .status(400)
-          .json({
-            error: `Invalid suitability IDs: ${invalidSuitability.join(", ")}`,
-          });
-      }
-      if (invalidReviews.length > 0) {
-        return res
-          .status(400)
-          .json({ error: `Invalid review IDs: ${invalidReviews.join(", ")}` });
-      }
+      // Lấy danh sách đường dẫn ảnh từ file upload
+      const images = req.files.map((file) => `/uploads/${file.filename}`);
 
       // Tạo Service mới
       const newService = await serviceService.createService({
@@ -195,6 +164,7 @@ router.post(
         priceCategories,
         suitability,
         reviews,
+        images, // Lưu mảng ảnh
       });
 
       res

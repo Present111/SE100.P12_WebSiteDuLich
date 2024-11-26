@@ -23,6 +23,7 @@ const createService = async (serviceData) => {
     priceCategories,
     suitability,
     reviews,
+    images, // Mảng hình ảnh
   } = serviceData;
 
   // Kiểm tra tiện nghi
@@ -58,6 +59,14 @@ const createService = async (serviceData) => {
     }
   }
 
+  // Kiểm tra mảng ảnh
+  if (images && !Array.isArray(images)) {
+    throw new Error("Images must be an array.");
+  }
+  if (images && images.some((img) => typeof img !== "string")) {
+    throw new Error("Each image in the images array must be a string URL.");
+  }
+
   // Tạo Service mới
   const newService = new Service({
     serviceID,
@@ -72,11 +81,11 @@ const createService = async (serviceData) => {
     priceCategories,
     suitability,
     reviews,
+    images, // Lưu mảng hình ảnh
   });
 
   return await newService.save();
 };
-
 /**
  * Lấy tất cả các Service
  * @returns {Array} - Danh sách Services
