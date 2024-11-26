@@ -42,6 +42,12 @@ const router = express.Router();
  *                 type: string
  *                 format: date
  *                 example: 2024-01-01
+ *               price:
+ *                 type: number
+ *                 example: 500
+ *               discountPrice:
+ *                 type: number
+ *                 example: 400
  *               active:
  *                 type: boolean
  *                 example: true
@@ -68,6 +74,17 @@ router.post(
     body("restaurantID").notEmpty().withMessage("Restaurant ID is required"),
     body("tableType").notEmpty().withMessage("Table Type is required"),
     body("availableDate").isISO8601().withMessage("Invalid date format"),
+    body("price").isFloat({ min: 0 }).withMessage("Price must be at least 0"),
+    body("discountPrice")
+      .optional()
+      .isFloat({ min: 0 })
+      .withMessage("Discount Price must be at least 0"),
+    body("discountPrice").custom((value, { req }) => {
+      if (value && value >= req.body.price) {
+        throw new Error("Discount Price must be less than Price");
+      }
+      return true;
+    }),
     body("active")
       .optional()
       .isBoolean()
@@ -80,12 +97,29 @@ router.post(
     }
 
     try {
+      const {
+        tableID,
+        restaurantID,
+        tableType,
+        availableDate,
+        price,
+        discountPrice,
+        active,
+      } = req.body;
+
       const picturePath = req.file ? `/uploads/${req.file.filename}` : null;
-      const newTable = await tableService.createTable(
-        req.body,
-        req.user,
-        picturePath
-      );
+
+      const newTable = await tableService.createTable({
+        tableID,
+        restaurantID,
+        tableType,
+        availableDate,
+        price,
+        discountPrice,
+        active,
+        picture: picturePath,
+      });
+
       res
         .status(201)
         .json({ message: "Table created successfully", data: newTable });

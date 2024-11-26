@@ -44,6 +44,23 @@ const roomSchema = new mongoose.Schema({
       min: 0, // Số trẻ em tối thiểu là 0
     },
   },
+
+  // Thuộc tính giá
+  price: {
+    type: Number,
+    required: true, // Giá gốc bắt buộc phải có
+    min: 0, // Giá không thể âm
+  },
+  discountPrice: {
+    type: Number,
+    validate: {
+      validator: function (value) {
+        // Giá discount không được lớn hơn giá gốc
+        return value === null || value < this.price;
+      },
+      message: "Discount price must be less than the original price.",
+    },
+  },
 });
 
 module.exports = mongoose.model("Room", roomSchema);

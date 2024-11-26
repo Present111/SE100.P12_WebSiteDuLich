@@ -9,6 +9,8 @@ const createRoom = async (roomData, user, picturePath) => {
     roomType,
     availableRooms,
     availableDate,
+    price,
+    discountPrice,
     active,
     capacity,
   } = roomData;
@@ -36,6 +38,17 @@ const createRoom = async (roomData, user, picturePath) => {
     throw new Error("Capacity (children) phải là số nguyên >= 0.");
   }
 
+  // Kiểm tra giá
+  if (price === undefined || price < 0) {
+    throw new Error("Price phải là số không âm và bắt buộc.");
+  }
+  if (
+    discountPrice !== undefined &&
+    (discountPrice < 0 || discountPrice >= price)
+  ) {
+    throw new Error("Discount Price phải là số không âm và nhỏ hơn Price.");
+  }
+
   // Tạo Room mới
   const newRoom = new Room({
     roomID,
@@ -43,6 +56,8 @@ const createRoom = async (roomData, user, picturePath) => {
     roomType,
     availableRooms,
     availableDate,
+    price,
+    discountPrice,
     active: active ?? true, // Nếu không cung cấp, mặc định là true
     picture: picturePath,
     capacity: {
@@ -53,7 +68,6 @@ const createRoom = async (roomData, user, picturePath) => {
 
   return await newRoom.save();
 };
-
 // Lấy tất cả Rooms
 const getAllRooms = async () => {
   return await Room.find().populate("hotelID", "hotelName");

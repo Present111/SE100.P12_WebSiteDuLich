@@ -45,6 +45,12 @@ const router = express.Router();
  *                 type: string
  *                 format: date
  *                 example: 2024-01-01
+ *               price:
+ *                 type: number
+ *                 example: 1000
+ *               discountPrice:
+ *                 type: number
+ *                 example: 800
  *               active:
  *                 type: boolean
  *                 example: true
@@ -80,9 +86,20 @@ router.post(
     body("hotelID").notEmpty().withMessage("Hotel ID is required"),
     body("roomType").notEmpty().withMessage("Room Type is required"),
     body("availableRooms")
-      .isInt()
-      .withMessage("Available Rooms must be an integer"),
+      .isInt({ min: 1 })
+      .withMessage("Available Rooms must be at least 1"),
     body("availableDate").isISO8601().withMessage("Invalid date format"),
+    body("price").isFloat({ min: 0 }).withMessage("Price must be at least 0"),
+    body("discountPrice")
+      .optional()
+      .isFloat({ min: 0 })
+      .withMessage("Discount Price must be at least 0"),
+    body("discountPrice").custom((value, { req }) => {
+      if (value && value >= req.body.price) {
+        throw new Error("Discount Price must be less than Price");
+      }
+      return true;
+    }),
     body("active")
       .optional()
       .isBoolean()
@@ -107,6 +124,8 @@ router.post(
         roomType,
         availableRooms,
         availableDate,
+        price,
+        discountPrice,
         active,
         capacity,
       } = req.body;
@@ -119,6 +138,8 @@ router.post(
         roomType,
         availableRooms,
         availableDate,
+        price,
+        discountPrice,
         active,
         capacity,
         picture: picturePath,
