@@ -43,6 +43,11 @@ const router = express.Router();
  *               serviceDescription:
  *                 type: string
  *                 example: Luxury travel services
+ *               serviceIDs:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["64f6b3c9e3a1a4321f2c1a8b", "64f7b4c8e3a1a4321f2c2c8c"]
  *     responses:
  *       201:
  *         description: Provider created successfully
@@ -60,6 +65,10 @@ router.post(
     body("userID").notEmpty().withMessage("User ID is required"),
     body("providerName").notEmpty().withMessage("Provider name is required"),
     body("address").notEmpty().withMessage("Address is required"),
+    body("serviceIDs")
+      .optional()
+      .isArray()
+      .withMessage("Service IDs must be an array of IDs"),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -183,12 +192,10 @@ router.put(
       );
       if (!updatedProvider)
         return res.status(404).json({ error: "Provider not found" });
-      res
-        .status(200)
-        .json({
-          message: "Provider updated successfully",
-          data: updatedProvider,
-        });
+      res.status(200).json({
+        message: "Provider updated successfully",
+        data: updatedProvider,
+      });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

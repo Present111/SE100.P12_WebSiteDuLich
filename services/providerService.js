@@ -1,5 +1,6 @@
 const Provider = require("../models/Provider");
 const User = require("../models/User");
+const Service = require("../models/Service");
 const mongoose = require("mongoose");
 
 /**
@@ -8,8 +9,14 @@ const mongoose = require("mongoose");
  * @returns {Object} - Provider vừa tạo
  */
 const createProvider = async (providerData) => {
-  const { providerID, userID, providerName, address, serviceDescription } =
-    providerData;
+  const {
+    providerID,
+    userID,
+    providerName,
+    address,
+    serviceDescription,
+    serviceIDs, // Thêm mảng serviceIDs
+  } = providerData;
 
   // Kiểm tra User ID
   const user = await User.findOne({ _id: userID, role: "Provider" });
@@ -23,6 +30,18 @@ const createProvider = async (providerData) => {
     throw new Error("Provider với ID này đã tồn tại.");
   }
 
+  // Kiểm tra các Service ID trong serviceIDs
+  if (serviceIDs && Array.isArray(serviceIDs)) {
+    for (const serviceID of serviceIDs) {
+      const service = await Service.findById(serviceID);
+      if (!service) {
+        throw new Error(`Service ID không tồn tại: ${serviceID}`);
+      }
+    }
+  } else if (serviceIDs) {
+    throw new Error("Service IDs phải là một mảng.");
+  }
+
   // Tạo Provider mới
   const newProvider = new Provider({
     providerID,
@@ -30,6 +49,7 @@ const createProvider = async (providerData) => {
     providerName,
     address,
     serviceDescription,
+    serviceIDs: serviceIDs || [], // Lưu trữ danh sách serviceIDs (mảng rỗng nếu không có)
   });
 
   return await newProvider.save();

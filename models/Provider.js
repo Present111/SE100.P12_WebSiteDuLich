@@ -8,6 +8,12 @@ const providerSchema = new mongoose.Schema({
   address: { type: String, required: true },
   serviceDescription: { type: String },
   active: { type: Boolean, default: true },
+  serviceIDs: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Service", // Tham chiếu đến bảng Service
+    },
+  ], // Mảng các dịch vụ mà Provider cung cấp
 });
 
 module.exports = mongoose.model("Provider", providerSchema);
