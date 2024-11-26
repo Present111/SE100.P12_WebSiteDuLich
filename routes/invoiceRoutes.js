@@ -30,17 +30,23 @@ const router = express.Router();
  *               userID:
  *                 type: string
  *                 example: U001
+ *               serviceID:
+ *                 type: string
+ *                 example: S001
+ *               quantity:
+ *                 type: number
+ *                 example: 2
  *               totalAmount:
  *                 type: number
  *                 example: 500.75
- *               invoiceDate:
+ *               issueDate:
  *                 type: string
  *                 format: date
  *                 example: 2024-01-01
  *               paymentStatus:
  *                 type: string
- *                 enum: [Pending, Paid, Cancelled]
- *                 example: Paid
+ *                 enum: [paid, unpaid]
+ *                 example: unpaid
  *     responses:
  *       201:
  *         description: Invoice created successfully
@@ -54,12 +60,16 @@ router.post(
   [
     body("invoiceID").notEmpty().withMessage("Invoice ID is required"),
     body("userID").notEmpty().withMessage("User ID is required"),
+    body("serviceID").notEmpty().withMessage("Service ID is required"),
+    body("quantity")
+      .isInt({ min: 1 })
+      .withMessage("Quantity must be at least 1"),
     body("totalAmount")
       .isNumeric()
       .withMessage("Total amount must be a number"),
-    body("invoiceDate").notEmpty().withMessage("Invoice date is required"),
+    body("issueDate").notEmpty().withMessage("Issue date is required"),
     body("paymentStatus")
-      .isIn(["Pending", "Paid", "Cancelled"])
+      .isIn(["paid", "unpaid"])
       .withMessage("Invalid payment status"),
   ],
   async (req, res) => {
@@ -156,8 +166,8 @@ router.get("/:id", async (req, res) => {
  *             properties:
  *               paymentStatus:
  *                 type: string
- *                 enum: [Pending, Paid, Cancelled]
- *                 example: Paid
+ *                 enum: [paid, unpaid]
+ *                 example: paid
  *     responses:
  *       200:
  *         description: Invoice updated successfully

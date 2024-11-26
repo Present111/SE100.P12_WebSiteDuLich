@@ -1,5 +1,6 @@
 const Invoice = require("../models/Invoice");
 const User = require("../models/User");
+const Service = require("../models/Service");
 
 /**
  * Tạo một Invoice mới
@@ -7,12 +8,13 @@ const User = require("../models/User");
  * @returns {Object} - Invoice vừa tạo
  */
 const createInvoice = async (invoiceData) => {
-  const { invoiceID, userID, totalAmount, invoiceDate, paymentStatus } = invoiceData;
+  const { invoiceID, userID, totalAmount, issueDate, paymentStatus, services } =
+    invoiceData;
 
   // Kiểm tra UserID đã tồn tại
-  const user = await User.findOne({ _id: userID });
+  const user = await User.findById(userID);
   if (!user) {
-    throw new Error("UserID không tồn tại.");
+    throw new Error("User ID không tồn tại.");
   }
 
   // Kiểm tra Invoice ID đã tồn tại
@@ -21,13 +23,30 @@ const createInvoice = async (invoiceData) => {
     throw new Error("Invoice với ID này đã tồn tại.");
   }
 
+  // Kiểm tra danh sách dịch vụ
+  for (const serviceEntry of services) {
+    const { serviceID, quantity } = serviceEntry;
+
+    // Kiểm tra serviceID hợp lệ
+    const service = await Service.findById(serviceID);
+    if (!service) {
+      throw new Error(`Service ID ${serviceID} không tồn tại.`);
+    }
+
+    // Kiểm tra số lượng phải lớn hơn 0
+    if (!quantity || quantity <= 0) {
+      throw new Error(`Quantity phải lớn hơn 0 cho service ${serviceID}.`);
+    }
+  }
+
   // Tạo Invoice mới
   const newInvoice = new Invoice({
     invoiceID,
     userID,
     totalAmount,
-    invoiceDate,
+    issueDate,
     paymentStatus,
+    services, // Lưu mảng serviceID và quantity
   });
 
   return await newInvoice.save();
@@ -38,7 +57,9 @@ const createInvoice = async (invoiceData) => {
  * @returns {Array} - Danh sách Invoices
  */
 const getAllInvoices = async () => {
-  return await Invoice.find().populate("userID", "fullName email");
+  return await Invoice.find()
+    .populate("userID", "fullName email")
+    .populate("services.serviceID", "serviceName price"); // Lấy thông tin dịch vụ
 };
 
 /**
@@ -47,7 +68,9 @@ const getAllInvoices = async () => {
  * @returns {Object|null} - Invoice hoặc null nếu không tìm thấy
  */
 const getInvoiceById = async (id) => {
-  return await Invoice.findById(id).populate("userID", "fullName email");
+  return await Invoice.findById(id)
+    .populate("userID", "fullName email")
+    .populate("services.serviceID", "serviceName price"); // Lấy thông tin dịch vụ
 };
 
 /**
@@ -57,7 +80,15 @@ const getInvoiceById = async (id) => {
  * @returns {Object|null} - Invoice sau khi cập nhật hoặc null nếu không tìm thấy
  */
 const updateInvoiceById = async (id, invoiceData) => {
-  return await Invoice.findByIdAndUpdate(id, invoiceData, { new: true });
+  const updatedInvoice = await Invoice.findByIdAndUpdate(id, invoiceData, {
+    new: true,
+  })
+    .populate("userID", "fullName email")
+    .populate("services.serviceID", "serviceName price"); // Lấy thông tin dịch vụ sau cập nhật
+  if (!updatedInvoice) {
+    throw new Error("Invoice not found");
+  }
+  return updatedInvoice;
 };
 
 /**
