@@ -66,6 +66,11 @@ const router = express.Router();
  *                   children:
  *                     type: number
  *                     example: 1
+ *               facilities:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["64f6b3c9e3a1a4321f2c1a8b", "64f7c3c9e3a1a4321f2c1a8c"]
  *     responses:
  *       201:
  *         description: Room created successfully
@@ -110,6 +115,10 @@ router.post(
     body("capacity.children")
       .isInt({ min: 0 })
       .withMessage("Capacity (children) must be at least 0"),
+    body("facilities")
+      .optional()
+      .isArray()
+      .withMessage("Facilities must be an array of IDs"),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -128,6 +137,7 @@ router.post(
         discountPrice,
         active,
         capacity,
+        facilities,
       } = req.body;
 
       const picturePath = req.file ? `/uploads/${req.file.filename}` : null;
@@ -142,6 +152,7 @@ router.post(
         discountPrice,
         active,
         capacity,
+        facilities,
         picture: picturePath,
       });
 

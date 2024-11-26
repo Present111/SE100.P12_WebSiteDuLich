@@ -19,6 +19,20 @@ const tableSchema = new mongoose.Schema({
     type: Date,
     required: true,
   }, // Ngày bàn trống
+  price: {
+    type: Number,
+    required: true,
+    min: 0,
+  }, // Giá gốc
+  discountPrice: {
+    type: Number,
+    validate: {
+      validator: function (value) {
+        return value === null || value < this.price;
+      },
+      message: "Discount price must be less than the original price.",
+    },
+  }, // Giá giảm
   picture: {
     type: String,
   }, // Link hình ảnh
@@ -26,23 +40,12 @@ const tableSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   }, // Trạng thái hoạt động (Yes/No)
-
-  // Thuộc tính giá
-  price: {
-    type: Number,
-    required: true, // Giá gốc bắt buộc
-    min: 0, // Giá không thể âm
-  },
-  discountPrice: {
-    type: Number,
-    validate: {
-      validator: function (value) {
-        // Giá discount không được lớn hơn giá gốc
-        return value === null || value < this.price;
-      },
-      message: "Discount price must be less than the original price.",
+  facilities: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Facility", // Tham chiếu tới bảng Facility
     },
-  },
+  ], // Mảng tiện ích liên quan đến Table
 });
 
 module.exports = mongoose.model("Table", tableSchema);

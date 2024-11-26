@@ -11,6 +11,7 @@ const createTable = async (tableData, user, picturePath) => {
     price,
     discountPrice,
     active,
+    facilities,
   } = tableData;
 
   // Kiểm tra Restaurant có tồn tại hay không
@@ -33,6 +34,16 @@ const createTable = async (tableData, user, picturePath) => {
     throw new Error("Discount Price phải là số không âm và nhỏ hơn Price.");
   }
 
+  // Kiểm tra danh sách tiện ích
+  if (facilities) {
+    for (const facilityID of facilities) {
+      const facility = await Facility.findById(facilityID);
+      if (!facility) {
+        throw new Error(`Facility ID không tồn tại: ${facilityID}`);
+      }
+    }
+  }
+
   // Tạo Table mới
   const newTable = new Table({
     tableID,
@@ -43,6 +54,7 @@ const createTable = async (tableData, user, picturePath) => {
     discountPrice,
     active: active ?? true, // Nếu không cung cấp, mặc định là true
     picture: picturePath,
+    facilities, // Lưu danh sách tiện ích
   });
 
   return await newTable.save();

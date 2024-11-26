@@ -1,5 +1,6 @@
 const Room = require("../models/Room");
 const Hotel = require("../models/Hotel");
+const Facility = require("../models/Facility");
 
 // Tạo Room mới
 const createRoom = async (roomData, user, picturePath) => {
@@ -13,6 +14,7 @@ const createRoom = async (roomData, user, picturePath) => {
     discountPrice,
     active,
     capacity,
+    facilities,
   } = roomData;
 
   // Kiểm tra Hotel có tồn tại hay không
@@ -49,6 +51,16 @@ const createRoom = async (roomData, user, picturePath) => {
     throw new Error("Discount Price phải là số không âm và nhỏ hơn Price.");
   }
 
+  // Kiểm tra danh sách tiện ích
+  if (facilities) {
+    for (const facilityID of facilities) {
+      const facility = await Facility.findById(facilityID);
+      if (!facility) {
+        throw new Error(`Facility ID không tồn tại: ${facilityID}`);
+      }
+    }
+  }
+
   // Tạo Room mới
   const newRoom = new Room({
     roomID,
@@ -64,10 +76,12 @@ const createRoom = async (roomData, user, picturePath) => {
       adults,
       children,
     },
+    facilities, // Lưu danh sách tiện ích
   });
 
   return await newRoom.save();
 };
+
 // Lấy tất cả Rooms
 const getAllRooms = async () => {
   return await Room.find().populate("hotelID", "hotelName");

@@ -23,6 +23,20 @@ const roomSchema = new mongoose.Schema({
     type: Date,
     required: true,
   }, // Ngày có phòng
+  price: {
+    type: Number,
+    required: true,
+    min: 0,
+  }, // Giá gốc
+  discountPrice: {
+    type: Number,
+    validate: {
+      validator: function (value) {
+        return value === null || value < this.price;
+      },
+      message: "Discount price must be less than the original price.",
+    },
+  }, // Giá giảm
   picture: {
     type: String,
   }, // Link hình ảnh
@@ -30,37 +44,24 @@ const roomSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   }, // Trạng thái hoạt động (Yes/No)
-
-  // Thuộc tính sức chứa
   capacity: {
     adults: {
       type: Number,
       required: true,
-      min: 1, // Số người lớn tối thiểu là 1
-    },
+      min: 1,
+    }, // Số người lớn
     children: {
       type: Number,
       required: true,
-      min: 0, // Số trẻ em tối thiểu là 0
+      min: 0,
+    }, // Số trẻ em
+  },
+  facilities: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Facility", // Tham chiếu tới bảng Facility
     },
-  },
-
-  // Thuộc tính giá
-  price: {
-    type: Number,
-    required: true, // Giá gốc bắt buộc phải có
-    min: 0, // Giá không thể âm
-  },
-  discountPrice: {
-    type: Number,
-    validate: {
-      validator: function (value) {
-        // Giá discount không được lớn hơn giá gốc
-        return value === null || value < this.price;
-      },
-      message: "Discount price must be less than the original price.",
-    },
-  },
+  ], // Mảng tiện ích liên quan đến Room
 });
 
 module.exports = mongoose.model("Room", roomSchema);

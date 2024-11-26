@@ -54,6 +54,11 @@ const router = express.Router();
  *               picture:
  *                 type: string
  *                 format: binary
+ *               facilities:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["64f6b3c9e3a1a4321f2c1a8b", "64f7c3c9e3a1a4321f2c1a8c"]
  *     responses:
  *       201:
  *         description: Table created successfully
@@ -89,6 +94,10 @@ router.post(
       .optional()
       .isBoolean()
       .withMessage("Active must be a boolean"),
+    body("facilities")
+      .optional()
+      .isArray()
+      .withMessage("Facilities must be an array of IDs"),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -105,6 +114,7 @@ router.post(
         price,
         discountPrice,
         active,
+        facilities,
       } = req.body;
 
       const picturePath = req.file ? `/uploads/${req.file.filename}` : null;
@@ -117,6 +127,7 @@ router.post(
         price,
         discountPrice,
         active,
+        facilities,
         picture: picturePath,
       });
 
