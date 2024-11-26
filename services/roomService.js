@@ -3,24 +3,52 @@ const Hotel = require("../models/Hotel");
 
 // Tạo Room mới
 const createRoom = async (roomData, user, picturePath) => {
-  const { roomID, hotelID, roomType, availableRooms, availableDate, active } =
-    roomData;
+  const {
+    roomID,
+    hotelID,
+    roomType,
+    availableRooms,
+    availableDate,
+    active,
+    capacity,
+  } = roomData;
 
+  // Kiểm tra Hotel có tồn tại hay không
   const hotel = await Hotel.findById(hotelID);
   if (!hotel) throw new Error("Hotel ID không tồn tại.");
 
+  // Kiểm tra quyền Provider (nếu người dùng không phải Admin)
   if (user.role === "Provider" && user.id !== hotel.serviceID.providerID) {
     throw new Error("Bạn không có quyền tạo Room cho Hotel này.");
   }
 
+  // Kiểm tra thuộc tính capacity
+  if (!capacity || typeof capacity !== "object") {
+    throw new Error(
+      "Capacity phải là một object với các giá trị adults và children."
+    );
+  }
+  const { adults, children } = capacity;
+  if (!Number.isInteger(adults) || adults < 1) {
+    throw new Error("Capacity (adults) phải là số nguyên >= 1.");
+  }
+  if (!Number.isInteger(children) || children < 0) {
+    throw new Error("Capacity (children) phải là số nguyên >= 0.");
+  }
+
+  // Tạo Room mới
   const newRoom = new Room({
     roomID,
     hotelID,
     roomType,
     availableRooms,
     availableDate,
-    active: active ?? true,
+    active: active ?? true, // Nếu không cung cấp, mặc định là true
     picture: picturePath,
+    capacity: {
+      adults,
+      children,
+    },
   });
 
   return await newRoom.save();

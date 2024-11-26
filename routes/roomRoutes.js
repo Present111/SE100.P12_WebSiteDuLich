@@ -51,6 +51,15 @@ const router = express.Router();
  *               picture:
  *                 type: string
  *                 format: binary
+ *               capacity:
+ *                 type: object
+ *                 properties:
+ *                   adults:
+ *                     type: number
+ *                     example: 2
+ *                   children:
+ *                     type: number
+ *                     example: 1
  *     responses:
  *       201:
  *         description: Room created successfully
@@ -78,6 +87,12 @@ router.post(
       .optional()
       .isBoolean()
       .withMessage("Active must be a boolean"),
+    body("capacity.adults")
+      .isInt({ min: 1 })
+      .withMessage("Capacity (adults) must be at least 1"),
+    body("capacity.children")
+      .isInt({ min: 0 })
+      .withMessage("Capacity (children) must be at least 0"),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -86,12 +101,29 @@ router.post(
     }
 
     try {
+      const {
+        roomID,
+        hotelID,
+        roomType,
+        availableRooms,
+        availableDate,
+        active,
+        capacity,
+      } = req.body;
+
       const picturePath = req.file ? `/uploads/${req.file.filename}` : null;
-      const newRoom = await roomService.createRoom(
-        req.body,
-        req.user,
-        picturePath
-      );
+
+      const newRoom = await roomService.createRoom({
+        roomID,
+        hotelID,
+        roomType,
+        availableRooms,
+        availableDate,
+        active,
+        capacity,
+        picture: picturePath,
+      });
+
       res
         .status(201)
         .json({ message: "Room created successfully", data: newRoom });
