@@ -7,8 +7,13 @@ const restaurantSchema = new mongoose.Schema({
     ref: "Service",
     required: true,
   },
-  cuisineType: { type: String, required: true },
-  seatingCapacity: { type: Number, required: true },
+  cuisineType: { type: String, required: true }, // Loại ẩm thực
+  seatingCapacity: { type: Number, required: true }, // Sức chứa
+  restaurantTypeID: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "RestaurantType", // Tham chiếu đến RestaurantType
+    required: true,
+  },
 });
 
 module.exports = mongoose.model("Restaurant", restaurantSchema);

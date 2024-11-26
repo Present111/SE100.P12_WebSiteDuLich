@@ -1,15 +1,21 @@
 const Restaurant = require("../models/Restaurant");
 const Service = require("../models/Service");
+const RestaurantType = require("../models/RestaurantTypes");
 
-/**
+/**cl
  * Tạo một Restaurant mới
  * @param {Object} restaurantData - Dữ liệu của Restaurant
  * @param {Object} user - Thông tin người dùng thực hiện
  * @returns {Object} - Restaurant vừa tạo
  */
 const createRestaurant = async (restaurantData, user) => {
-  const { restaurantID, serviceID, cuisineType, seatingCapacity } =
-    restaurantData;
+  const {
+    restaurantID,
+    serviceID,
+    cuisineType,
+    seatingCapacity,
+    restaurantTypeID,
+  } = restaurantData;
 
   // Kiểm tra Service ID
   const service = await Service.findById(serviceID);
@@ -22,11 +28,19 @@ const createRestaurant = async (restaurantData, user) => {
     throw new Error("Bạn không có quyền tạo Restaurant cho Service này.");
   }
 
+  // Kiểm tra RestaurantType ID
+  const restaurantType = await RestaurantType.findById(restaurantTypeID);
+  if (!restaurantType) {
+    throw new Error("Restaurant Type ID không tồn tại.");
+  }
+
+  // Tạo Restaurant mới
   const newRestaurant = new Restaurant({
     restaurantID,
     serviceID,
     cuisineType,
     seatingCapacity,
+    restaurantTypeID, // Tham chiếu loại nhà hàng
   });
 
   return await newRestaurant.save();
@@ -37,10 +51,9 @@ const createRestaurant = async (restaurantData, user) => {
  * @returns {Array} - Danh sách Restaurants
  */
 const getAllRestaurants = async () => {
-  return await Restaurant.find().populate(
-    "serviceID",
-    "serviceName providerID"
-  );
+  return await Restaurant.find()
+    .populate("serviceID", "serviceName providerID")
+    .populate("restaurantTypeID", "type"); // Lấy thông tin loại nhà hàng
 };
 
 /**
@@ -49,10 +62,9 @@ const getAllRestaurants = async () => {
  * @returns {Object|null} - Restaurant hoặc null nếu không tìm thấy
  */
 const getRestaurantById = async (id) => {
-  return await Restaurant.findById(id).populate(
-    "serviceID",
-    "serviceName providerID"
-  );
+  return await Restaurant.findById(id)
+    .populate("serviceID", "serviceName providerID")
+    .populate("restaurantTypeID", "type"); // Lấy thông tin loại nhà hàng
 };
 
 /**

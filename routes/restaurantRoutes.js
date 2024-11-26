@@ -40,6 +40,9 @@ const router = express.Router();
  *               seatingCapacity:
  *                 type: number
  *                 example: 50
+ *               restaurantTypeID:
+ *                 type: string
+ *                 example: 64f6b3c9e3a1a4321f2c1a8b
  *     responses:
  *       201:
  *         description: Restaurant created successfully
@@ -59,6 +62,9 @@ router.post(
     body("seatingCapacity")
       .isNumeric()
       .withMessage("Seating Capacity must be a number"),
+    body("restaurantTypeID")
+      .notEmpty()
+      .withMessage("Restaurant Type ID is required"),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -71,12 +77,10 @@ router.post(
         req.body,
         req.user
       );
-      res
-        .status(201)
-        .json({
-          message: "Restaurant created successfully",
-          data: newRestaurant,
-        });
+      res.status(201).json({
+        message: "Restaurant created successfully",
+        data: newRestaurant,
+      });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
