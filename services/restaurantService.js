@@ -1,8 +1,8 @@
 const Restaurant = require("../models/Restaurant");
 const Service = require("../models/Service");
 const RestaurantType = require("../models/RestaurantTypes");
-
-/**cl
+const CuisineType = require("../models/CuisineType"); // Thêm model CuisineType
+/**
  * Tạo một Restaurant mới
  * @param {Object} restaurantData - Dữ liệu của Restaurant
  * @param {Object} user - Thông tin người dùng thực hiện
@@ -12,7 +12,7 @@ const createRestaurant = async (restaurantData, user) => {
   const {
     restaurantID,
     serviceID,
-    cuisineType,
+    cuisineTypeID, // Thay đổi để dùng ID từ bảng CuisineType
     seatingCapacity,
     restaurantTypeID,
   } = restaurantData;
@@ -24,7 +24,7 @@ const createRestaurant = async (restaurantData, user) => {
   }
 
   // Kiểm tra quyền của Provider
-  if (user.role === "Provider" && user.id !== service.providerID) {
+  if (user.role === "Provider" && user.id !== service.providerID.toString()) {
     throw new Error("Bạn không có quyền tạo Restaurant cho Service này.");
   }
 
@@ -34,18 +34,23 @@ const createRestaurant = async (restaurantData, user) => {
     throw new Error("Restaurant Type ID không tồn tại.");
   }
 
+  // Kiểm tra CuisineType ID
+  const cuisineType = await CuisineType.findById(cuisineTypeID);
+  if (!cuisineType) {
+    throw new Error("Cuisine Type ID không tồn tại.");
+  }
+
   // Tạo Restaurant mới
   const newRestaurant = new Restaurant({
     restaurantID,
     serviceID,
-    cuisineType,
+    cuisineType: cuisineTypeID, // Sử dụng ID từ CuisineType
     seatingCapacity,
     restaurantTypeID, // Tham chiếu loại nhà hàng
   });
 
   return await newRestaurant.save();
 };
-
 /**
  * Lấy tất cả Restaurants
  * @returns {Array} - Danh sách Restaurants

@@ -33,16 +33,16 @@ const router = express.Router();
  *                 example: R001
  *               serviceID:
  *                 type: string
- *                 example: S001
- *               cuisineType:
+ *                 example: 64f6b3c9e3a1a4321f2c1a8b
+ *               cuisineTypeID:
  *                 type: string
- *                 example: Italian
+ *                 example: 64f7b3c9e3a1a4321f2c1a8c
  *               seatingCapacity:
  *                 type: number
  *                 example: 50
  *               restaurantTypeID:
  *                 type: string
- *                 example: 64f6b3c9e3a1a4321f2c1a8b
+ *                 example: 64f8b3c9e3a1a4321f2c1a8d
  *     responses:
  *       201:
  *         description: Restaurant created successfully
@@ -57,14 +57,14 @@ router.post(
   roleMiddleware(["Provider"]),
   [
     body("restaurantID").notEmpty().withMessage("Restaurant ID is required"),
-    body("serviceID").notEmpty().withMessage("Service ID is required"),
-    body("cuisineType").notEmpty().withMessage("Cuisine Type is required"),
+    body("serviceID").isMongoId().withMessage("Invalid Service ID"),
+    body("cuisineTypeID").isMongoId().withMessage("Invalid Cuisine Type ID"),
     body("seatingCapacity")
       .isNumeric()
       .withMessage("Seating Capacity must be a number"),
     body("restaurantTypeID")
-      .notEmpty()
-      .withMessage("Restaurant Type ID is required"),
+      .isMongoId()
+      .withMessage("Invalid Restaurant Type ID"),
   ],
   async (req, res) => {
     const errors = validationResult(req);
