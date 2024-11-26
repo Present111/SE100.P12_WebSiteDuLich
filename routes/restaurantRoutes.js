@@ -34,15 +34,22 @@ const router = express.Router();
  *               serviceID:
  *                 type: string
  *                 example: 64f6b3c9e3a1a4321f2c1a8b
- *               cuisineTypeID:
- *                 type: string
- *                 example: 64f7b3c9e3a1a4321f2c1a8c
+ *               cuisineTypeIDs:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["64f8b3c9e3a1a4321f2c1a8c", "64f8c4d9e3a1a4321f2c1a8d"]
+ *               dishes:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["64f9d5a9e3a1a4321f2c1a8e", "64f9e6b9e3a1a4321f2c1a8f"]
  *               seatingCapacity:
  *                 type: number
- *                 example: 50
+ *                 example: 100
  *               restaurantTypeID:
  *                 type: string
- *                 example: 64f8b3c9e3a1a4321f2c1a8d
+ *                 example: 64fae7c9e3a1a4321f2c1a90
  *     responses:
  *       201:
  *         description: Restaurant created successfully
@@ -57,14 +64,19 @@ router.post(
   roleMiddleware(["Provider"]),
   [
     body("restaurantID").notEmpty().withMessage("Restaurant ID is required"),
-    body("serviceID").isMongoId().withMessage("Invalid Service ID"),
-    body("cuisineTypeID").isMongoId().withMessage("Invalid Cuisine Type ID"),
+    body("serviceID").isMongoId().withMessage("Service ID must be a valid ID"),
+    body("cuisineTypeIDs")
+      .isArray()
+      .withMessage("Cuisine Type IDs must be an array")
+      .notEmpty()
+      .withMessage("Cuisine Type IDs cannot be empty"),
+    body("dishes").optional().isArray().withMessage("Dishes must be an array"),
     body("seatingCapacity")
-      .isNumeric()
-      .withMessage("Seating Capacity must be a number"),
+      .isInt({ min: 1 })
+      .withMessage("Seating Capacity must be at least 1"),
     body("restaurantTypeID")
       .isMongoId()
-      .withMessage("Invalid Restaurant Type ID"),
+      .withMessage("Restaurant Type ID must be a valid ID"),
   ],
   async (req, res) => {
     const errors = validationResult(req);
