@@ -1,5 +1,6 @@
 const Admin = require("../models/Admin");
 const User = require("../models/User");
+const shortid = require("shortid"); // Sử dụng shortid để tạo adminID duy nhất
 
 /**
  * Tạo một Admin mới
@@ -9,10 +10,15 @@ const User = require("../models/User");
 const createAdmin = async (adminData) => {
   const { userID, accessLevel } = adminData;
 
-  // Kiểm tra UserID đã tồn tại và có vai trò Admin
-  const existingUser = await User.findOne({ _id: userID, role: "Admin" });
+  // Kiểm tra xem userID có tồn tại trong bảng User không
+  const existingUser = await User.findById(userID);
   if (!existingUser) {
-    throw new Error("UserID không tồn tại hoặc không phải Admin.");
+    throw new Error("UserID không tồn tại.");
+  }
+
+  // Kiểm tra xem User có vai trò là Admin hay không
+  if (existingUser.role !== "Admin") {
+    throw new Error("User không phải là Admin.");
   }
 
   // Kiểm tra Admin đã tồn tại chưa
@@ -21,7 +27,17 @@ const createAdmin = async (adminData) => {
     throw new Error("Admin với UserID này đã tồn tại.");
   }
 
-  const newAdmin = new Admin({ userID, accessLevel });
+  // Tạo adminID tự động (bạn có thể thay đổi cách tạo adminID theo yêu cầu)
+  const adminID = shortid.generate(); // Tạo một adminID duy nhất
+
+  // Tạo Admin mới
+  const newAdmin = new Admin({
+    adminID, // Gán adminID tự động
+    userID,
+    accessLevel,
+  });
+
+  // Lưu Admin vào cơ sở dữ liệu
   return await newAdmin.save();
 };
 

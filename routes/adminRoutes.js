@@ -56,10 +56,12 @@ const router = express.Router();
  *       500:
  *         description: Lỗi máy chủ.
  */
+
+// Route tạo Admin mới
 router.post(
   "/",
-  // authMiddleware,
-  // roleMiddleware(["Admin"]),
+  // authMiddleware, // Middleware xác thực người dùng (nếu cần)
+  // roleMiddleware(["Admin"]), // Middleware kiểm tra quyền Admin (nếu cần)
   [
     body("userID").notEmpty().withMessage("UserID is required"),
     body("accessLevel").notEmpty().withMessage("Access level is required"),
@@ -70,17 +72,24 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
     }
 
+    const { userID, accessLevel } = req.body;
+
     try {
-      const newAdmin = await adminService.createAdmin(req.body);
-      res
-        .status(201)
-        .json({ message: "Admin created successfully", data: newAdmin });
+      // Gọi service để tạo Admin mới
+      const newAdmin = await adminService.createAdmin({ userID, accessLevel });
+
+      // Trả về phản hồi thành công
+      res.status(201).json({
+        message: "Admin created successfully",
+        data: newAdmin,
+      });
     } catch (err) {
+      // Xử lý lỗi nếu có
+      console.error(err);
       res.status(500).json({ error: err.message });
     }
   }
 );
-
 /**
  * @swagger
  * /api/admins:
