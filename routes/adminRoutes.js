@@ -32,7 +32,7 @@ const router = express.Router();
  *               userID:
  *                 type: string
  *                 description: ID của người dùng.
- *                 example: "12345"
+ *                 example: "6746c95080b53a817395f40e"
  *               accessLevel:
  *                 type: string
  *                 description: Cấp độ quyền truy cập của Admin.
@@ -60,8 +60,8 @@ const router = express.Router();
 // Route tạo Admin mới
 router.post(
   "/",
-  // authMiddleware, // Middleware xác thực người dùng (nếu cần)
-  // roleMiddleware(["Admin"]), // Middleware kiểm tra quyền Admin (nếu cần)
+  authMiddleware, // Middleware xác thực người dùng (nếu cần)
+  roleMiddleware(["Admin"]), // Middleware kiểm tra quyền Admin (nếu cần)
   [
     body("userID").notEmpty().withMessage("UserID is required"),
     body("accessLevel").notEmpty().withMessage("Access level is required"),

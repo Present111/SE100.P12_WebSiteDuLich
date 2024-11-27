@@ -33,7 +33,7 @@ const router = express.Router();
  *                 example: C001
  *               userID:
  *                 type: string
- *                 example: U001
+ *                 example: 6746c91d80b53a817395f3f0
  *               loyaltyPoints:
  *                 type: number
  *                 example: 100
@@ -176,12 +176,10 @@ router.put(
       );
       if (!updatedCustomer)
         return res.status(404).json({ error: "Customer not found" });
-      res
-        .status(200)
-        .json({
-          message: "Customer updated successfully",
-          data: updatedCustomer,
-        });
+      res.status(200).json({
+        message: "Customer updated successfully",
+        data: updatedCustomer,
+      });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
