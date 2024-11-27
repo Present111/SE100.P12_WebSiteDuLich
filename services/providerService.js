@@ -31,16 +31,16 @@ const createProvider = async (providerData) => {
   }
 
   // Kiểm tra các Service ID trong serviceIDs
-  if (serviceIDs && Array.isArray(serviceIDs)) {
-    for (const serviceID of serviceIDs) {
-      const service = await Service.findById(serviceID);
-      if (!service) {
-        throw new Error(`Service ID không tồn tại: ${serviceID}`);
-      }
-    }
-  } else if (serviceIDs) {
-    throw new Error("Service IDs phải là một mảng.");
-  }
+  // if (serviceIDs && Array.isArray(serviceIDs)) {
+  //   for (const serviceID of serviceIDs) {
+  //     const service = await Service.findById(serviceID);
+  //     if (!service) {
+  //       throw new Error(`Service ID không tồn tại: ${serviceID}`);
+  //     }
+  //   }
+  // } else if (serviceIDs) {
+  //   throw new Error("Service IDs phải là một mảng.");
+  // }
 
   // Tạo Provider mới
   const newProvider = new Provider({
