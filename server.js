@@ -17,6 +17,7 @@ const restaurantRoutes = require("./routes/restaurantRoutes");
 const roomRoutes = require("./routes/roomRoutes");
 const tableRoutes = require("./routes/tableRoutes");
 const locationRoutes = require("./routes/locationRoutes");
+const hotelTypeRoute = require("./routes/hotelTypeRoute");
 const path = require("path");
 
 // Load .env file
@@ -57,6 +58,7 @@ app.use("/api/restaurants", restaurantRoutes);
 app.use("/api/rooms", roomRoutes);
 app.use("/api/tables", tableRoutes);
 app.use("/api/locations", locationRoutes);
+app.use("/api/hotelType", hotelTypeRoute);
 
 // Swagger Documentation
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
