@@ -117,8 +117,7 @@ router.post(
  */
 router.get(
   "/",
-  authMiddleware,
-  roleMiddleware(["Admin", "Provider", "Customer"]),
+  
   async (req, res) => {
     try {
       const hotels = await hotelService.getAllHotels();

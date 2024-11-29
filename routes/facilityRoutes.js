@@ -230,4 +230,51 @@ router.delete(
   }
 );
 
+/**
+ * @swagger
+ * /api/facilities/{serviceType}:
+ *   get:
+ *     summary: Lấy tất cả các Facility theo loại dịch vụ
+ *     tags: [Facilities]
+ *     parameters:
+ *       - name: serviceType
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [Room, Table]  # Các loại dịch vụ có sẵn
+ *           example: Room
+ *     responses:
+ *       200:
+ *         description: Các facility theo serviceType được trả về thành công
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   facilityID:
+ *                     type: string
+ *                     example: 64f6b3c9e3a1a4321f2c1a8b
+ *                   name:
+ *                     type: string
+ *                     example: "Room A"
+ *                   serviceType:
+ *                     type: string
+ *                     example: "Room"
+ *       404:
+ *         description: Không tìm thấy facility với serviceType đã cho
+ *       500:
+ *         description: Lỗi server
+ */
+
+router.get("/:serviceType", async (req, res) => {
+  try {
+    const facilities = await facilityController.getFacilitiesByServiceType(req.params.serviceType);
+    res.status(200).json(facilities);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 module.exports = router;

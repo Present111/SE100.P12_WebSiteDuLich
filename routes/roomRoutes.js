@@ -186,8 +186,7 @@ router.post(
  */
 router.get(
   "/",
-  authMiddleware,
-  roleMiddleware(["Admin", "Provider"]),
+  
   async (req, res) => {
     try {
       const rooms = await roomService.getAllRooms();
