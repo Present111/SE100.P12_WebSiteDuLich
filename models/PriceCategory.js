@@ -1,10 +1,12 @@
 const mongoose = require("mongoose");
 
 const priceCategorySchema = new mongoose.Schema({
-  priceCategoryID: { type: String, required: true, unique: true }, // ID bảng giá
-  cheap: { type: Number, required: true }, // Giá rẻ
-  midRange: { type: Number, required: true }, // Giá trung bình
-  luxury: { type: Number, required: true }, // Giá cao cấp
+  type: {
+    type: String,
+    required: true,
+    unique: true,
+    enum: ["cheap", "midRange", "luxury"], // Các giá trị cho loại bảng giá
+  },
 });
 
 module.exports = mongoose.model("PriceCategory", priceCategorySchema);

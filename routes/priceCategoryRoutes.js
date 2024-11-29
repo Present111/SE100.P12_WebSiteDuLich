@@ -28,18 +28,10 @@ const router = express.Router();
  *           schema:
  *             type: object
  *             properties:
- *               priceCategoryID:
+ *               type:
  *                 type: string
- *                 example: P001
- *               cheap:
- *                 type: number
- *                 example: 100
- *               midRange:
- *                 type: number
- *                 example: 200
- *               luxury:
- *                 type: number
- *                 example: 500
+ *                 enum: [cheap, midRange, luxury]
+ *                 example: "cheap"
  *     responses:
  *       201:
  *         description: PriceCategory created successfully
@@ -50,17 +42,14 @@ const router = express.Router();
  */
 router.post(
   "/",
-  authMiddleware,
-  roleMiddleware(["Admin"]),
+  // authMiddleware,
+  // roleMiddleware(["Admin"]),
   [
-    body("priceCategoryID")
+    body("type")
       .notEmpty()
-      .withMessage("PriceCategory ID is required"),
-    body("cheap").isNumeric().withMessage("Cheap price must be a number"),
-    body("midRange")
-      .isNumeric()
-      .withMessage("Mid-range price must be a number"),
-    body("luxury").isNumeric().withMessage("Luxury price must be a number"),
+      .withMessage("Type is required")
+      .isIn(["cheap", "midRange", "luxury"])
+      .withMessage("Type must be one of 'cheap', 'midRange', 'luxury'"),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -72,12 +61,10 @@ router.post(
       const newPriceCategory = await priceCategoryService.createPriceCategory(
         req.body
       );
-      res
-        .status(201)
-        .json({
-          message: "PriceCategory created successfully",
-          data: newPriceCategory,
-        });
+      res.status(201).json({
+        message: "PriceCategory created successfully",
+        data: newPriceCategory,
+      });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -108,12 +95,12 @@ router.get("/", authMiddleware, async (req, res) => {
   }
 });
 
-// READ ONE - Lấy chi tiết bảng giá
+// READ ONE - Lấy chi tiết bảng giá theo ID
 /**
  * @swagger
  * /api/price-categories/{id}:
  *   get:
- *     summary: Lấy thông tin một bảng giá
+ *     summary: Lấy thông tin một bảng giá theo ID
  *     tags: [PriceCategories]
  *     security:
  *       - bearerAuth: []
@@ -150,7 +137,7 @@ router.get("/:id", authMiddleware, async (req, res) => {
  * @swagger
  * /api/price-categories/{id}:
  *   put:
- *     summary: Cập nhật thông tin bảng giá
+ *     summary: Cập nhật bảng giá theo ID
  *     tags: [PriceCategories]
  *     security:
  *       - bearerAuth: []
@@ -168,15 +155,10 @@ router.get("/:id", authMiddleware, async (req, res) => {
  *           schema:
  *             type: object
  *             properties:
- *               cheap:
- *                 type: number
- *                 example: 150
- *               midRange:
- *                 type: number
- *                 example: 250
- *               luxury:
- *                 type: number
- *                 example: 550
+ *               type:
+ *                 type: string
+ *                 enum: [cheap, midRange, luxury]
+ *                 example: "midRange"
  *     responses:
  *       200:
  *         description: PriceCategory updated successfully
@@ -192,12 +174,10 @@ router.put("/:id", authMiddleware, async (req, res) => {
         req.params.id,
         req.body
       );
-    res
-      .status(200)
-      .json({
-        message: "PriceCategory updated successfully",
-        data: updatedPriceCategory,
-      });
+    res.status(200).json({
+      message: "PriceCategory updated successfully",
+      data: updatedPriceCategory,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -208,7 +188,7 @@ router.put("/:id", authMiddleware, async (req, res) => {
  * @swagger
  * /api/price-categories/{id}:
  *   delete:
- *     summary: Xóa một bảng giá
+ *     summary: Xóa bảng giá theo ID
  *     tags: [PriceCategories]
  *     security:
  *       - bearerAuth: []

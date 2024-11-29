@@ -1,42 +1,60 @@
 const PriceCategory = require("../models/PriceCategory");
 
-// Tạo bảng giá mới
+/**
+ * Tạo mới một bảng giá
+ * @param {Object} priceCategoryData - Dữ liệu của bảng giá
+ * @returns {Object} - Bảng giá mới được tạo
+ */
 const createPriceCategory = async (priceCategoryData) => {
-  const newPriceCategory = new PriceCategory(priceCategoryData);
+  const { type } = priceCategoryData;
+
+  // Kiểm tra bảng giá đã tồn tại hay chưa
+  const existingPriceCategory = await PriceCategory.findOne({ type });
+  if (existingPriceCategory) {
+    throw new Error(`Bảng giá '${type}' đã tồn tại.`);
+  }
+
+  // Tạo mới bảng giá
+  const newPriceCategory = new PriceCategory({ type });
   return await newPriceCategory.save();
 };
 
-// Lấy tất cả bảng giá
+/**
+ * Lấy tất cả các bảng giá
+ * @returns {Array} - Danh sách bảng giá
+ */
 const getAllPriceCategories = async () => {
   return await PriceCategory.find();
 };
 
-// Lấy bảng giá theo ID
-const getPriceCategoryById = async (id) => {
-  return await PriceCategory.findById(id);
+/**
+ * Lấy chi tiết bảng giá theo type
+ * @param {String} type - Type của bảng giá (cheap, midRange, luxury)
+ * @returns {Object|null} - Bảng giá hoặc null nếu không tìm thấy
+ */
+const getPriceCategoryByType = async (type) => {
+  return await PriceCategory.findOne({ type });
 };
 
-// Cập nhật bảng giá theo ID
-const updatePriceCategoryById = async (id, priceCategoryData) => {
-  const priceCategory = await PriceCategory.findById(id);
-  if (!priceCategory) throw new Error("PriceCategory not found");
+/**
+ * Xóa bảng giá theo type
+ * @param {String} type - Type của bảng giá cần xóa
+ * @returns {Boolean} - Trả về true nếu xóa thành công, lỗi nếu không
+ */
+const deletePriceCategoryByType = async (type) => {
+  const priceCategory = await PriceCategory.findOne({ type });
 
-  Object.assign(priceCategory, priceCategoryData);
-  return await priceCategory.save();
-};
+  if (!priceCategory) {
+    throw new Error(`Không tìm thấy bảng giá với type '${type}'`);
+  }
 
-// Xóa bảng giá theo ID
-const deletePriceCategoryById = async (id) => {
-  const priceCategory = await PriceCategory.findById(id);
-  if (!priceCategory) throw new Error("PriceCategory not found");
-
-  return await priceCategory.remove();
+  await priceCategory.remove();
+  return true;
 };
 
 module.exports = {
   createPriceCategory,
   getAllPriceCategories,
-  getPriceCategoryById,
-  updatePriceCategoryById,
-  deletePriceCategoryById,
+  getPriceCategoryByType,
+  deletePriceCategoryByType,
 };
