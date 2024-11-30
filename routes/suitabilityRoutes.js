@@ -60,12 +60,10 @@ router.post(
       const newSuitability = await suitabilityService.createSuitability(
         req.body
       );
-      res
-        .status(201)
-        .json({
-          message: "Suitability created successfully",
-          data: newSuitability,
-        });
+      res.status(201).json({
+        message: "Suitability created successfully",
+        data: newSuitability,
+      });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -87,7 +85,7 @@ router.post(
  *       500:
  *         description: Server error
  */
-router.get("/", authMiddleware, async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const suitabilities = await suitabilityService.getAllSuitabilities();
     res.status(200).json(suitabilities);
@@ -173,12 +171,10 @@ router.put("/:id", authMiddleware, async (req, res) => {
       req.params.id,
       req.body
     );
-    res
-      .status(200)
-      .json({
-        message: "Suitability updated successfully",
-        data: updatedSuitability,
-      });
+    res.status(200).json({
+      message: "Suitability updated successfully",
+      data: updatedSuitability,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

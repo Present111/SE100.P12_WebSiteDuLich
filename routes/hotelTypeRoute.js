@@ -15,7 +15,7 @@ const router = express.Router();
 // CREATE - Tạo mới một loại khách sạn
 /**
  * @swagger
- * /api/hotel-types:
+ * /api/hotelType:
  *   post:
  *     summary: Tạo mới một loại khách sạn (Chỉ Provider)
  *     tags: [HotelType]
@@ -60,12 +60,10 @@ router.post(
       const { type } = req.body;
 
       const newHotelType = await hotelTypeService.createHotelType(type);
-      res
-        .status(201)
-        .json({
-          message: "HotelType created successfully",
-          data: newHotelType,
-        });
+      res.status(201).json({
+        message: "HotelType created successfully",
+        data: newHotelType,
+      });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -75,7 +73,7 @@ router.post(
 // READ ALL - Lấy danh sách tất cả các loại khách sạn
 /**
  * @swagger
- * /api/hotel-types:
+ * /api/hotelType:
  *   get:
  *     summary: Lấy danh sách tất cả loại khách sạn
  *     tags: [HotelType]
@@ -99,7 +97,7 @@ router.get("/", async (req, res) => {
 // READ ONE - Lấy thông tin một loại khách sạn
 /**
  * @swagger
- * /api/hotel-types/{id}:
+ * /api/hotelType/{id}:
  *   get:
  *     summary: Lấy thông tin một loại khách sạn
  *     tags: [HotelType]
@@ -134,7 +132,7 @@ router.get("/:id", async (req, res) => {
 // DELETE - Xóa loại khách sạn
 /**
  * @swagger
- * /api/hotel-types/{id}:
+ * /api/hotelType/{id}:
  *   delete:
  *     summary: Xóa một loại khách sạn
  *     tags: [HotelType]

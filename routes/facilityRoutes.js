@@ -15,7 +15,7 @@ const router = express.Router();
 // CREATE - Tạo mới Facility
 /**
  * @swagger
- * /api/facilities:
+ * /api/facility:
  *   post:
  *     summary: Tạo mới một Facility (Chỉ Admin)
  *     tags: [Facilities]
@@ -77,7 +77,7 @@ router.post(
 // READ ALL - Lấy danh sách Facilities
 /**
  * @swagger
- * /api/facilities:
+ * /api/facility:
  *   get:
  *     summary: Lấy danh sách tất cả Facilities
  *     tags: [Facilities]
@@ -101,7 +101,7 @@ router.get("/", authMiddleware, async (req, res) => {
 // READ ONE - Lấy chi tiết Facility theo ID
 /**
  * @swagger
- * /api/facilities/{id}:
+ * /api/facility/{id}:
  *   get:
  *     summary: Lấy thông tin một Facility
  *     tags: [Facilities]
@@ -135,7 +135,7 @@ router.get("/:id", authMiddleware, async (req, res) => {
 // UPDATE - Cập nhật Facility
 /**
  * @swagger
- * /api/facilities/{id}:
+ * /api/facility/{id}:
  *   put:
  *     summary: Cập nhật thông tin một Facility
  *     tags: [Facilities]
@@ -180,12 +180,10 @@ router.put(
         req.params.id,
         req.body
       );
-      res
-        .status(200)
-        .json({
-          message: "Facility updated successfully",
-          data: updatedFacility,
-        });
+      res.status(200).json({
+        message: "Facility updated successfully",
+        data: updatedFacility,
+      });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -195,7 +193,7 @@ router.put(
 // DELETE - Xóa Facility
 /**
  * @swagger
- * /api/facilities/{id}:
+ * /api/facility/{id}:
  *   delete:
  *     summary: Xóa một Facility
  *     tags: [Facilities]
@@ -232,7 +230,7 @@ router.delete(
 
 /**
  * @swagger
- * /api/facilities/{serviceType}:
+ * /api/facility/{serviceType}:
  *   get:
  *     summary: Lấy tất cả các Facility theo loại dịch vụ
  *     tags: [Facilities]
@@ -271,7 +269,9 @@ router.delete(
 
 router.get("/:serviceType", async (req, res) => {
   try {
-    const facilities = await facilityController.getFacilitiesByServiceType(req.params.serviceType);
+    const facilities = await facilityController.getFacilitiesByServiceType(
+      req.params.serviceType
+    );
     res.status(200).json(facilities);
   } catch (error) {
     res.status(500).json({ message: error.message });
