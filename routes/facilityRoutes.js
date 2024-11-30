@@ -89,7 +89,7 @@ router.post(
  *       500:
  *         description: Server error
  */
-router.get("/", authMiddleware, async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const facilities = await facilityService.getAllFacilities();
     res.status(200).json(facilities);
