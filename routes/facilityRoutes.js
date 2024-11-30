@@ -228,53 +228,53 @@ router.delete(
   }
 );
 
+
 /**
  * @swagger
- * /api/facility/{serviceType}:
+ * /api/facility/service-type/{serviceType}:
  *   get:
- *     summary: Lấy tất cả các Facility theo loại dịch vụ
+ *     summary: Lấy danh sách Facilities theo loại dịch vụ (serviceType)
  *     tags: [Facilities]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - name: serviceType
  *         in: path
  *         required: true
  *         schema:
  *           type: string
- *           enum: [Room, Table]  # Các loại dịch vụ có sẵn
+ *           enum: [Room, Table]
  *           example: Room
  *     responses:
  *       200:
- *         description: Các facility theo serviceType được trả về thành công
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   facilityID:
- *                     type: string
- *                     example: 64f6b3c9e3a1a4321f2c1a8b
- *                   name:
- *                     type: string
- *                     example: "Room A"
- *                   serviceType:
- *                     type: string
- *                     example: "Room"
+ *         description: Danh sách Facilities theo loại dịch vụ
  *       404:
- *         description: Không tìm thấy facility với serviceType đã cho
+ *         description: Không tìm thấy Facilities
  *       500:
- *         description: Lỗi server
+ *         description: Server error
  */
-
-router.get("/:serviceType", async (req, res) => {
+router.get("/service-type/:serviceType", async (req, res) => {
   try {
-    const facilities = await facilityController.getFacilitiesByServiceType(
-      req.params.serviceType
+    const { serviceType } = req.params;
+    if (!["Room", "Table"].includes(serviceType)) {
+      return res
+        .status(400)
+        .json({ error: "Invalid serviceType. Must be 'Room' or 'Table'." });
+    }
+
+    const facilities = await facilityService.getFacilitiesByServiceType(
+      serviceType
     );
+    if (facilities.length === 0) {
+      return res.status(404).json({ message: "No facilities found" });
+    }
+
     res.status(200).json(facilities);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
+
 module.exports = router;
+
+

@@ -10,4 +10,9 @@ const facilityTypeSchema = new mongoose.Schema({
   },
 });
 
+facilityTypeSchema.statics.findByServiceType = function (serviceType) {
+  return this.find({ serviceType });
+};
+
 module.exports = mongoose.model("FacilityType", facilityTypeSchema);
+ 

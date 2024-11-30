@@ -96,7 +96,7 @@ router.post(
  *       500:
  *         description: Server error
  */
-router.get("/", authMiddleware, async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const facilityTypes = await facilityTypeService.getAllFacilityTypes();
     res.status(200).json(facilityTypes);
@@ -225,6 +225,81 @@ router.delete("/:id", authMiddleware, async (req, res) => {
     res.status(200).json({ message: "FacilityType deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;
+
+
+
+/**
+ * @swagger
+ * /api/facility-types/service-type/{serviceType}:
+ *   get:
+ *     summary: Lấy danh sách tiện nghi theo loại dịch vụ
+ *     tags: [FacilityTypes]
+ *     parameters:
+ *       - name: serviceType
+ *         in: path
+ *         description: Loại dịch vụ (hotel, restaurant, cafe)
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [hotel, restaurant, cafe]
+ *           example: hotel
+ *     responses:
+ *       200:
+ *         description: Danh sách các tiện nghi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   facilityTypeID:
+ *                     type: string
+ *                     example: F001
+ *                   name:
+ *                     type: string
+ *                     example: Wifi miễn phí
+ *                   serviceType:
+ *                     type: string
+ *                     example: hotel
+ *       404:
+ *         description: Không tìm thấy tiện nghi nào
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "No facilities found for this service type"
+ *       500:
+ *         description: Lỗi máy chủ
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *                   example: "Server error"
+ */
+router.get("/service-type/:serviceType", async (req, res) => {
+  const { serviceType } = req.params;
+
+  try {
+    const facilities = await facilityTypeService.getFacilityTypesByServiceType(serviceType);
+
+    if (facilities.length === 0) {
+      return res.status(404).json({ error: "No facilities found for this service type" });
+    }
+
+    res.status(200).json(facilities);
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
   }
 });
 

@@ -16,6 +16,11 @@ const getFacilityTypeById = async (id) => {
   return await FacilityType.findById(id);
 };
 
+// Lấy các tiện nghi theo `serviceType`
+const getFacilityTypesByServiceType = async (serviceType) => {
+  return await FacilityType.findByServiceType(serviceType);
+};
+
 // Cập nhật loại tiện nghi theo ID
 const updateFacilityTypeById = async (id, facilityTypeData) => {
   const facilityType = await FacilityType.findById(id);
@@ -37,6 +42,7 @@ module.exports = {
   createFacilityType,
   getAllFacilityTypes,
   getFacilityTypeById,
+  getFacilityTypesByServiceType, // Export chức năng mới
   updateFacilityTypeById,
   deleteFacilityTypeById,
 };
