@@ -39,10 +39,6 @@ const router = express.Router();
  *                 minimum: 1
  *                 maximum: 5
  *                 example: 4.5
- *               roomCapacity:
- *                 type: number
- *                 minimum: 1
- *                 example: 100
  *               hotelTypeID:
  *                 type: string
  *                 example: 64f6b3c9e3a1a4321f2c1a8b
@@ -66,11 +62,6 @@ router.post(
       .withMessage("Star Rating must be a number")
       .isFloat({ min: 1, max: 5 })
       .withMessage("Star Rating must be between 1 and 5"),
-    body("roomCapacity")
-      .isNumeric()
-      .withMessage("Room Capacity must be a number")
-      .isInt({ min: 1 })
-      .withMessage("Room Capacity must be at least 1"),
     body("hotelTypeID")
       .notEmpty()
       .withMessage("Hotel Type ID is required")
@@ -84,11 +75,11 @@ router.post(
     }
 
     try {
-      const { hotelID, serviceID, starRating, roomCapacity, hotelTypeID } =
+      const { hotelID, serviceID, starRating, hotelTypeID } =
         req.body;
 
       const newHotel = await hotelService.createHotel(
-        { hotelID, serviceID, starRating, roomCapacity, hotelTypeID },
+        { hotelID, serviceID, starRating, hotelTypeID },
         req.user
       );
       res
@@ -117,7 +108,7 @@ router.post(
  */
 router.get(
   "/",
-  
+
   async (req, res) => {
     try {
       const hotels = await hotelService.getAllHotels();

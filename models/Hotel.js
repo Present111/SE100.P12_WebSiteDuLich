@@ -8,7 +8,6 @@ const hotelSchema = new mongoose.Schema({
     required: true,
   }, // ID dịch vụ
   starRating: { type: Number, required: true, min: 1, max: 5 }, // Xếp hạng sao
-  roomCapacity: { type: Number, required: true, min: 1 }, // Số phòng
   hotelTypeID: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "HotelType", // FK tới bảng HotelType

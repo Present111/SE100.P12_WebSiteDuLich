@@ -9,8 +9,7 @@ const HotelType = require("../models/HotelType");
  * @returns {Object} - Hotel vừa tạo
  */
 const createHotel = async (hotelData, user) => {
-  const { hotelID, serviceID, starRating, roomCapacity, hotelTypeID } =
-    hotelData;
+  const { hotelID, serviceID, starRating, hotelTypeID } = hotelData;
 
   // Kiểm tra Service ID
   const service = await Service.findOne({ _id: serviceID });
@@ -34,7 +33,6 @@ const createHotel = async (hotelData, user) => {
     hotelID,
     serviceID,
     starRating,
-    roomCapacity,
     hotelTypeID, // Gắn loại Hotel
   });
 
