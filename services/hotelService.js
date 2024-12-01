@@ -81,9 +81,30 @@ const deleteHotelById = async (id, user) => {
   return true;
 };
 
+const getHotelById1 = async (hotelID) => {
+  try {
+    // Đảm bảo rằng bạn gọi populate() sau khi thực hiện truy vấn
+    const hotel = await Hotel.findOne({ hotelID }).populate({
+      path: "serviceID", // Populate thông tin dịch vụ (service)
+      populate: {
+        path: "locationID", // Populate thông tin vị trí (location)
+        model: "Location", // Model của Location
+      },
+    });
+
+    if (!hotel) {
+      throw new Error("Hotel not found");
+    }
+    return hotel;
+  } catch (err) {
+    throw new Error(err.message);
+  }
+};
+
 module.exports = {
   createHotel,
   getAllHotels,
   getHotelById,
   deleteHotelById,
+  getHotelById1,
 };

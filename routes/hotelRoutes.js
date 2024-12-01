@@ -75,8 +75,7 @@ router.post(
     }
 
     try {
-      const { hotelID, serviceID, starRating, hotelTypeID } =
-        req.body;
+      const { hotelID, serviceID, starRating, hotelTypeID } = req.body;
 
       const newHotel = await hotelService.createHotel(
         { hotelID, serviceID, starRating, hotelTypeID },
@@ -183,6 +182,49 @@ router.delete("/:id", authMiddleware, async (req, res) => {
   try {
     await hotelService.deleteHotelById(req.params.id, req.user);
     res.status(200).json({ message: "Hotel deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// CREATE - Route mới để lấy thông tin Hotel với Service và Location
+/**
+ * @swagger
+ * /api/hotels/details/{id}:
+ *   get:
+ *     summary: Lấy thông tin chi tiết của một Hotel với Service và Location
+ *     tags: [Hotels]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           example: 64f6b3c9e3a1a4321f2c1a8b
+ *     responses:
+ *       200:
+ *         description: Thông tin chi tiết Hotel, Service và Location
+ *       404:
+ *         description: Hotel not found
+ *       500:
+ *         description: Server error
+ */
+router.get("/details/:id", async (req, res) => {
+  try {
+    // Lấy thông tin khách sạn theo ID và nạp các thông tin liên quan
+    const hotel = await hotelService.getHotelById1(req.params.id);
+
+    // Nếu không tìm thấy khách sạn
+    if (!hotel) return res.status(404).json({ error: "Hotel not found" });
+
+    // Trả về thông tin chi tiết khách sạn, dịch vụ và vị trí
+    res.status(200).json({
+      hotel,
+      service: hotel.serviceID, // Dịch vụ của khách sạn
+      location: hotel.serviceID.locationID, // Vị trí từ dịch vụ
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

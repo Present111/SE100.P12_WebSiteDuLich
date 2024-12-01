@@ -193,8 +193,8 @@ router.post(
  */
 router.get(
   "/",
-  authMiddleware,
-  roleMiddleware(["Admin", "Provider"]),
+  // authMiddleware,
+  // roleMiddleware(["Admin", "Provider"]),
   async (req, res) => {
     try {
       const services = await serviceService.getAllServices();
