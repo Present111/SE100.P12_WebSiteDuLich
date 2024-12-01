@@ -61,6 +61,9 @@ const router = express.Router();
  *                   children:
  *                     type: number
  *                     example: 1
+ *                   RoomNumber:
+ *                     type: number
+ *                     example: 1
  *               facilities:
  *                 type: array
  *                 items:
@@ -118,6 +121,9 @@ router.post(
     body("capacity.children")
       .isInt({ min: 0 })
       .withMessage("Capacity (children) must be at least 0"),
+    body("capacity.roomNumber")
+      .isInt({ min: 0 })
+      .withMessage("roomNumber must be at least 0"),
     body("facilities")
       .optional()
       .isArray()

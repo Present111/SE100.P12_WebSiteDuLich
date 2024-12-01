@@ -31,12 +31,15 @@ const createRoom = async (roomData, user, picturePaths) => {
       "Capacity phải là một object với các giá trị adults và children."
     );
   }
-  const { adults, children } = capacity;
+  const { adults, children, roomNumber } = capacity;
   if (!Number.isInteger(adults) || adults < 1) {
     throw new Error("Capacity (adults) phải là số nguyên >= 1.");
   }
   if (!Number.isInteger(children) || children < 0) {
     throw new Error("Capacity (children) phải là số nguyên >= 0.");
+  }
+  if (!Number.isInteger(roomNumber) || roomNumber < 0) {
+    throw new Error("roomNumber phải là số nguyên >= 0.");
   }
 
   // Kiểm tra giá
@@ -105,6 +108,7 @@ const createRoom = async (roomData, user, picturePaths) => {
     capacity: {
       adults,
       children,
+      roomNumber,
     },
     facilities, // Lưu danh sách tiện ích
     roomsAvailable, // Lưu mảng roomsAvailable
