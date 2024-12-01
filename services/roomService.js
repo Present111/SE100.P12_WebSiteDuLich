@@ -8,13 +8,12 @@ const createRoom = async (roomData, user, picturePaths) => {
     roomID,
     hotelID,
     roomType,
-    availableRooms,
-    availableDate,
     price,
     discountPrice,
     active,
     capacity,
     facilities,
+    roomsAvailable, // Mảng chứa thông tin ngày và số phòng trống
   } = roomData;
 
   // Kiểm tra Hotel có tồn tại hay không
@@ -61,6 +60,30 @@ const createRoom = async (roomData, user, picturePaths) => {
     }
   }
 
+  // Kiểm tra mảng roomsAvailable
+  if (
+    !roomsAvailable ||
+    !Array.isArray(roomsAvailable) ||
+    roomsAvailable.length === 0
+  ) {
+    throw new Error("Ít nhất một ngày với số phòng trống phải được cung cấp.");
+  }
+
+  // Kiểm tra từng phần tử trong mảng roomsAvailable
+  for (const room of roomsAvailable) {
+    const { date, availableRooms } = room;
+
+    // Kiểm tra format date
+    if (!Date.parse(date)) {
+      throw new Error(`Ngày không hợp lệ: ${date}`);
+    }
+
+    // Kiểm tra availableRooms là một số nguyên và >= 0
+    if (!Number.isInteger(availableRooms) || availableRooms < 0) {
+      throw new Error(`Số phòng trống không hợp lệ: ${availableRooms}`);
+    }
+  }
+
   // Kiểm tra danh sách ảnh tải lên
   if (
     !picturePaths ||
@@ -75,8 +98,6 @@ const createRoom = async (roomData, user, picturePaths) => {
     roomID,
     hotelID,
     roomType,
-    availableRooms,
-    availableDate,
     price,
     discountPrice,
     active: active ?? true, // Nếu không cung cấp, mặc định là true
@@ -86,6 +107,7 @@ const createRoom = async (roomData, user, picturePaths) => {
       children,
     },
     facilities, // Lưu danh sách tiện ích
+    roomsAvailable, // Lưu mảng roomsAvailable
   });
 
   return await newRoom.save();

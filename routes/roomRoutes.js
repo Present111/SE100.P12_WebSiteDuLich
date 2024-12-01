@@ -38,13 +38,6 @@ const router = express.Router();
  *               roomType:
  *                 type: string
  *                 example: Deluxe
- *               availableRooms:
- *                 type: number
- *                 example: 5
- *               availableDate:
- *                 type: string
- *                 format: date
- *                 example: 2024-01-01
  *               price:
  *                 type: number
  *                 example: 1000
@@ -73,6 +66,18 @@ const router = express.Router();
  *                 items:
  *                   type: string
  *                 example: ["64f6b3c9e3a1a4321f2c1a8b", "64f7c3c9e3a1a4321f2c1a8c"]
+ *               roomsAvailable:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     date:
+ *                       type: string
+ *                       format: date
+ *                       example: "2024-12-01"
+ *                     availableRooms:
+ *                       type: number
+ *                       example: 10
  *     responses:
  *       201:
  *         description: Room created successfully
@@ -92,10 +97,6 @@ router.post(
     body("roomID").notEmpty().withMessage("Room ID is required"),
     body("hotelID").notEmpty().withMessage("Hotel ID is required"),
     body("roomType").notEmpty().withMessage("Room Type is required"),
-    body("availableRooms")
-      .isInt({ min: 1 })
-      .withMessage("Available Rooms must be at least 1"),
-    body("availableDate").isISO8601().withMessage("Invalid date format"),
     body("price").isFloat({ min: 0 }).withMessage("Price must be at least 0"),
     body("discountPrice")
       .optional()
@@ -121,6 +122,22 @@ router.post(
       .optional()
       .isArray()
       .withMessage("Facilities must be an array of IDs"),
+    body("roomsAvailable")
+      .isArray()
+      .withMessage("roomsAvailable must be an array of objects")
+      .custom((value) => {
+        if (!Array.isArray(value)) return false;
+        return value.every(
+          (item) =>
+            item.hasOwnProperty("date") &&
+            item.hasOwnProperty("availableRooms") &&
+            !isNaN(new Date(item.date).getTime()) &&
+            item.availableRooms >= 0
+        );
+      })
+      .withMessage(
+        "Each room availability must have a valid date and availableRooms"
+      ),
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -133,13 +150,12 @@ router.post(
         roomID,
         hotelID,
         roomType,
-        availableRooms,
-        availableDate,
         price,
         discountPrice,
         active,
         capacity,
         facilities,
+        roomsAvailable, // Mảng chứa các thông tin ngày và số phòng trống
       } = req.body;
 
       // Lưu đường dẫn của tất cả các ảnh đã tải lên
@@ -150,14 +166,13 @@ router.post(
         roomID,
         hotelID,
         roomType,
-        availableRooms,
-        availableDate,
         price,
         discountPrice,
         active,
         capacity,
         facilities,
         pictures, // Gửi danh sách đường dẫn ảnh
+        roomsAvailable, // Mảng roomsAvailable chứa ngày và số phòng trống
       });
 
       res
@@ -186,7 +201,7 @@ router.post(
  */
 router.get(
   "/",
-  
+
   async (req, res) => {
     try {
       const rooms = await roomService.getAllRooms();

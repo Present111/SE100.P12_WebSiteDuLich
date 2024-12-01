@@ -15,14 +15,6 @@ const roomSchema = new mongoose.Schema({
     type: String,
     required: true,
   }, // Loại phòng
-  availableRooms: {
-    type: Number,
-    required: true,
-  }, // Số lượng phòng trống
-  availableDate: {
-    type: Date,
-    required: true,
-  }, // Ngày có phòng
   price: {
     type: Number,
     required: true,
@@ -64,6 +56,19 @@ const roomSchema = new mongoose.Schema({
       ref: "Facility", // Tham chiếu tới bảng Facility
     },
   ], // Mảng tiện ích liên quan đến Room
+  roomsAvailable: [
+    {
+      date: {
+        type: Date,
+        required: true,
+      }, // Ngày có phòng
+      availableRooms: {
+        type: Number,
+        required: true,
+        min: 0,
+      }, // Số lượng phòng trống cho ngày này
+    },
+  ], // Mảng các đối tượng {date, availableRooms}
 });
 
 module.exports = mongoose.model("Room", roomSchema);
