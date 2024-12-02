@@ -101,10 +101,22 @@ const getHotelById1 = async (hotelID) => {
   }
 };
 
+const getAllHotelsWithDetails = async () => {
+  return await Hotel.find()
+    .populate({
+      path: "serviceID",
+      populate: [
+        { path: "locationID", model: "Location" }, // Populate Service -> Location
+        { path: "facilities", model: "FacilityType" }, // Populate Service -> FacilityType
+      ],
+    })
+    .exec();
+};
 module.exports = {
   createHotel,
   getAllHotels,
   getHotelById,
   deleteHotelById,
   getHotelById1,
+  getAllHotelsWithDetails
 };

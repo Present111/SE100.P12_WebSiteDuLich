@@ -42,7 +42,7 @@ module.exports = {
   createFacilityType,
   getAllFacilityTypes,
   getFacilityTypeById,
-  getFacilityTypesByServiceType, // Export chức năng mới
+  getFacilityTypesByServiceType, 
   updateFacilityTypeById,
   deleteFacilityTypeById,
 };
