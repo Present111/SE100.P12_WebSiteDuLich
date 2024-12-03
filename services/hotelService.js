@@ -1,6 +1,7 @@
 const Hotel = require("../models/Hotel");
 const Service = require("../models/Service");
 const HotelType = require("../models/HotelType");
+const Room = require("../models/Room");
 
 /**
  * Tạo một Hotel mới
@@ -81,25 +82,72 @@ const deleteHotelById = async (id, user) => {
   return true;
 };
 
-const getHotelById1 = async (hotelID) => {
+const getHotelById1 = async (id) => {
   try {
-    // Đảm bảo rằng bạn gọi populate() sau khi thực hiện truy vấn
-    const hotel = await Hotel.findOne({ hotelID }).populate({
-      path: "serviceID", // Populate thông tin dịch vụ (service)
-      populate: {
-        path: "locationID", // Populate thông tin vị trí (location)
-        model: "Location", // Model của Location
-      },
-    });
+    // Truy vấn khách sạn và populate thông tin chi tiết
+    const hotel = await Hotel.findById(id)
+      .populate({
+        path: "serviceID", // Populate thông tin dịch vụ
+        populate: [
+          {
+            path: "locationID", // Populate thông tin Location
+            model: "Location",
+          },
+          {
+            path: "providerID", // Populate thông tin Provider
+            model: "Provider",
+          },
+          {
+            path: "facilities", // Populate tiện ích dịch vụ
+            model: "FacilityType",
+          },
+          {
+            path: "priceCategories", // Populate bảng giá
+            model: "PriceCategory",
+          },
+          {
+            path: "suitability", // Populate phù hợp
+            model: "Suitability",
+          },
+          {
+            path: "reviews", // Populate đánh giá
+            model: "Review",
+          },
+        ],
+      })
+      .populate({
+        path: "hotelTypeID", // Populate loại hình khách sạn
+        select: "name description", // Chọn các trường cần thiết từ loại hình khách sạn
+      });
 
+    // Kiểm tra nếu không tìm thấy khách sạn
     if (!hotel) {
       throw new Error("Hotel not found");
     }
-    return hotel;
+
+    // Truy vấn thông tin các phòng (rooms) tham chiếu đến khách sạn này
+    const rooms = await Room.find({ hotel: id })
+      .populate({
+        path: "facilities", // Populate tiện ích phòng
+        model: "Facility",
+      })
+      .populate({
+        path: "hotel", // Populate lại thông tin khách sạn nếu cần thiết
+        model: "Hotel",
+        select: "name location",
+      });
+
+    // Thêm thông tin phòng vào thông tin khách sạn
+    hotel.rooms = rooms;
+
+    return hotel; // Trả về thông tin khách sạn với tất cả các dữ liệu đã populate, bao gồm phòng
   } catch (err) {
+    // Lỗi trong quá trình truy vấn hoặc populate
     throw new Error(err.message);
   }
 };
+
+
 
 const getAllHotelsWithDetails = async () => {
   return await Hotel.find()

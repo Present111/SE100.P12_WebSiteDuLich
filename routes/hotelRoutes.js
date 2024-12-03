@@ -3,6 +3,9 @@ const { body, validationResult } = require("express-validator");
 const authMiddleware = require("../middlewares/authMiddleware");
 const roleMiddleware = require("../middlewares/roleMiddleware");
 const hotelService = require("../services/hotelService");
+const Hotel = require("../models/Hotel");
+const Service = require("../models/Service");
+const Room = require("../models/Room");
 const router = express.Router();
 
 /**
@@ -205,7 +208,7 @@ router.delete("/:id", authMiddleware, async (req, res) => {
  *         required: true
  *         schema:
  *           type: string
- *           example: 64f6b3c9e3a1a4321f2c1a8b
+ *           example: 674c15f9128a1d2cc905039c
  *     responses:
  *       200:
  *         description: Thông tin chi tiết Hotel, Service và Location
@@ -265,55 +268,51 @@ router.get("/details", async (req, res) => {
 /**
  * @swagger
  * /api/hotels/filter:
- *   get:
- *     summary: Lọc danh sách Hotels theo bộ lọc đa dạng
+ *   post:
+ *     summary: Lọc danh sách Hotels chỉ theo loại khách sạn (HotelType)
  *     tags: [Hotels]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: priceCategories
- *         schema:
- *           type: array
- *           items:
- *             type: string
- *           example: ["64f7d9275f3a4c001c9f7293", "64f7d9275f3a4c001c9f7294"]
- *         description: Mảng ObjectId của PriceCategory
- *       - in: query
- *         name: suitabilities
- *         schema:
- *           type: array
- *           items:
- *             type: string
- *           example: ["64f7d9275f3a4c001c9f7295", "64f7d9275f3a4c001c9f7296"]
- *         description: Mảng ObjectId của Suitability
- *       - in: query
- *         name: facilities
- *         schema:
- *           type: array
- *           items:
- *             type: string
- *           example: ["64f7d9275f3a4c001c9f7297", "64f7d9275f3a4c001c9f7298"]
- *         description: Mảng ObjectId của Facility
- *       - in: query
- *         name: facilityTypes
- *         schema:
- *           type: array
- *           items:
- *             type: string
- *           example: ["64f7d9275f3a4c001c9f7299", "64f7d9275f3a4c001c9f7300"]
- *         description: Mảng ObjectId của FacilityType
- *       - in: query
- *         name: hotelTypes
- *         schema:
- *           type: array
- *           items:
- *             type: string
- *           example: ["64f7d9275f3a4c001c9f7301", "64f7d9275f3a4c001c9f7302"]
- *         description: Mảng ObjectId của HotelType
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               priceCategories:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   description: "Mảng ObjectId của PriceCategory"
+ *                 example: [""]
+ *               suitabilities:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   description: "Mảng ObjectId của Suitability"
+ *                 example: [""]
+ *               facilities:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   description: "Mảng ObjectId của Facility"
+ *                 example: ["6748d61d7a0ec298a6836c75"]
+ *               facilityTypes:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   description: "Mảng ObjectId của FacilityType"
+ *                 example: [""]
+ *               hotelTypes:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   description: "Mảng ObjectId của HotelType"
+ *                 example: [""]
  *     responses:
  *       200:
- *         description: Danh sách Hotels phù hợp
+ *         description: Danh sách Hotels phù hợp với loại khách sạn
  *         content:
  *           application/json:
  *             schema:
@@ -341,87 +340,93 @@ router.get("/details", async (req, res) => {
  *       500:
  *         description: Lỗi máy chủ
  */
-router.get("/filter", async (req, res) => {
+
+router.post("/filter", async (req, res) => {
   try {
-    const {
-      priceCategories = [],
-      suitabilities = [],
-      facilities = [],
-      facilityTypes = [],
-      hotelTypes = [],
-    } = req.query;
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] Request Body:`, req.body); 
+    let { priceCategories = [], suitabilities = [], facilities = [], facilityTypes = [], hotelTypes = [] } = req.body;
 
-    // Chuyển tham số chuỗi thành mảng
-    const priceCategoryArray = Array.isArray(priceCategories)
-      ? priceCategories
-      : priceCategories.split(",");
-    const suitabilityArray = Array.isArray(suitabilities)
-      ? suitabilities
-      : suitabilities.split(",");
-    const facilityArray = Array.isArray(facilities)
-      ? facilities
-      : facilities.split(",");
-    const facilityTypeArray = Array.isArray(facilityTypes)
-      ? facilityTypes
-      : facilityTypes.split(",");
-    const hotelTypeArray = Array.isArray(hotelTypes)
-      ? hotelTypes
-      : hotelTypes.split(",");
+    // Chuyển chuỗi thành mảng nếu cần
+    const parseArray = (param) => (Array.isArray(param) ? param : param.split(","));
+    priceCategories = parseArray(priceCategories);
+    suitabilities = parseArray(suitabilities);
+    facilities = parseArray(facilities);
+    facilityTypes = parseArray(facilityTypes);
+    hotelTypes = parseArray(hotelTypes);
 
-    // Bộ lọc cho Service
-    const serviceFilters = {};
-    if (priceCategoryArray.length > 0) {
-      serviceFilters.priceCategories = { $in: priceCategoryArray };
-    }
-    if (suitabilityArray.length > 0) {
-      serviceFilters.suitability = { $in: suitabilityArray };
-    }
+    // Kiểm tra ObjectId hợp lệ
+    const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
 
-    // Bộ lọc cho Hotel
+    // Lọc ObjectId hợp lệ
+    priceCategories = priceCategories.filter(isValidObjectId);
+    suitabilities = suitabilities.filter(isValidObjectId);
+    facilities = facilities.filter(isValidObjectId);
+    facilityTypes = facilityTypes.filter(isValidObjectId);
+    hotelTypes = hotelTypes.filter(isValidObjectId);
+
+    // Xây dựng bộ lọc cho Hotel
     const hotelFilters = {};
-    if (hotelTypeArray.length > 0) {
-      hotelFilters.hotelTypeID = { $in: hotelTypeArray };
+    if (hotelTypes.length) hotelFilters.hotelTypeID = { $in: hotelTypes };
+
+    // Tìm Service IDs dựa trên tất cả các tiêu chí
+    let serviceFilters = {};
+    if (facilityTypes.length) serviceFilters.facilities = { $all: facilityTypes }; // $all: Thỏa mãn tất cả các facilityTypes
+    if (priceCategories.length) serviceFilters.priceCategories = { $all: priceCategories }; // $all: Thỏa mãn tất cả các priceCategories
+    if (suitabilities.length) serviceFilters.suitability = { $all: suitabilities }; // $all: Thỏa mãn tất cả các suitabilities
+
+    if (Object.keys(serviceFilters).length) {
+      const services = await Service.find(serviceFilters).select("_id");
+      const serviceIDs = services.map((service) => service._id);
+
+      // Chỉ áp dụng lọc Service nếu có kết quả
+      if (serviceIDs.length) {
+        hotelFilters.serviceID = { $in: serviceIDs };
+      } else {
+        // Không có service nào phù hợp => trả về mảng rỗng
+        return res.status(200).json([]);
+      }
     }
 
-    // Bộ lọc cho Room
-    const roomFilters = {};
-    if (facilityArray.length > 0) {
-      roomFilters.facilities = { $in: facilityArray };
-    }
-    if (facilityTypeArray.length > 0) {
-      roomFilters["facilities.serviceType"] = { $in: facilityTypeArray };
+    // Thêm lọc Room dựa trên Facilities
+    if (facilities.length) {
+      const rooms = await Room.find({ facilities: { $all: facilities } }).select("hotelID");
+      const hotelIDs = rooms.map((room) => room.hotelID);
+
+      if (hotelIDs.length) {
+        if (hotelFilters._id) {
+          hotelFilters._id.$in = hotelFilters._id.$in.filter((id) => hotelIDs.includes(id));
+        } else {
+          hotelFilters._id = { $in: hotelIDs };
+        }
+      } else {
+        // Không có Room nào phù hợp => trả về mảng rỗng
+        return res.status(200).json([]);
+      }
     }
 
-    // Query danh sách Hotels
+    // Truy vấn Hotel với thông tin chi tiết
     const hotels = await Hotel.find(hotelFilters)
       .populate({
         path: "serviceID",
-        match: serviceFilters,
         populate: [
-          { path: "priceCategories", model: "PriceCategory" },
-          { path: "suitability", model: "Suitability" },
+          { path: "locationID", model: "Location" }, // Populate Service -> Location
+          { path: "facilities", model: "FacilityType" }, // Populate Service -> FacilityType
+          { path: "priceCategories", model: "PriceCategory" }, // Populate Service -> PriceCategory
+          { path: "suitability", model: "Suitability" }, // Populate Service -> Suitability
         ],
       })
-      .populate("hotelTypeID", "type")
+      .populate("hotelTypeID", "type") // Populate HotelType
       .exec();
 
-    // Query Rooms phù hợp từng Hotel
-    const hotelWithRooms = await Promise.all(
-      hotels.map(async (hotel) => {
-        const rooms = await Room.find({ hotelID: hotel._id, ...roomFilters }).populate("facilities");
-        return { ...hotel.toObject(), rooms };
-      })
-    );
-
-    // Chỉ trả về Hotels có Rooms phù hợp
-    const filteredHotels = hotelWithRooms.filter((hotel) => hotel.rooms.length > 0);
-
-    res.status(200).json(filteredHotels);
+    res.status(200).json(hotels);
   } catch (err) {
-    console.error(err);
+    console.error("Error:", err.message);
     res.status(500).json({ error: "Server error" });
   }
 });
+
 module.exports = router;
+
 
 
