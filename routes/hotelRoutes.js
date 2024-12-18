@@ -6,6 +6,7 @@ const hotelService = require("../services/hotelService");
 const Hotel = require("../models/Hotel");
 const Service = require("../models/Service");
 const Room = require("../models/Room");
+const Location = require("../models/Location");
 const router = express.Router();
 
 /**
@@ -220,16 +221,14 @@ router.delete("/:id", authMiddleware, async (req, res) => {
 router.get("/details/:id", async (req, res) => {
   try {
     // Lấy thông tin khách sạn theo ID và nạp các thông tin liên quan
-    const hotel = await hotelService.getHotelById1(req.params.id);
+    const {hotel,rooms} = await hotelService.getHotelById1(req.params.id);
 
-    // Nếu không tìm thấy khách sạn
-    if (!hotel) return res.status(404).json({ error: "Hotel not found" });
+    
 
     // Trả về thông tin chi tiết khách sạn, dịch vụ và vị trí
     res.status(200).json({
-      hotel,
-      service: hotel.serviceID, // Dịch vụ của khách sạn
-      location: hotel.serviceID.locationID, // Vị trí từ dịch vụ
+      hotel,rooms
+      
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -425,6 +424,124 @@ router.post("/filter", async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 });
+
+
+/**
+ * @swagger
+ * /api/hotels/nearby:
+ *   post:
+ *     summary: Tìm khách sạn trong bán kính từ một tọa độ
+ *     tags: [Hotels]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               latitude:
+ *                 type: number
+ *                 example: 10.8510034
+ *               longitude:
+ *                 type: number
+ *                 example: 106.7411957
+ *               distance:
+ *                 type: number
+ *                 example: 3
+ *     responses:
+ *       200:
+ *         description: Danh sách khách sạn trong bán kính
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *       400:
+ *         description: Lỗi xác thực dữ liệu đầu vào
+ *       500:
+ *         description: Lỗi hệ thống
+ */
+router.post("/nearby", async (req, res) => {
+  const { latitude, longitude, distance } = req.body;
+
+  // Kiểm tra đầu vào
+  if (
+    typeof latitude !== "number" ||
+    typeof longitude !== "number" ||
+    typeof distance !== "number" ||
+    distance <= 0
+  ) {
+    return res
+      .status(400)
+      .json({ error: "Invalid latitude, longitude, or distance" });
+  }
+
+  try {
+    // Bán kính Trái Đất theo km
+    const EARTH_RADIUS_KM = 6371;
+
+    // Công thức Haversine để tính khoảng cách giữa hai điểm
+    const haversineDistance = (lat1, lon1, lat2, lon2) => {
+      const toRad = (degree) => (degree * Math.PI) / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return EARTH_RADIUS_KM * c; // Trả về khoảng cách theo km
+    };
+
+    // Tìm các địa điểm trong bán kính
+    const locations = await Location.find({
+      locationID: { $exists: true },
+    });
+
+    // Lọc các địa điểm trong bán kính
+    const nearbyLocations = locations.filter((location) => {
+      const distanceToCenter = haversineDistance(latitude, longitude, location.latitude, location.longitude);
+      return distanceToCenter <= distance;  // Nếu khoảng cách nhỏ hơn hoặc bằng bán kính, là địa điểm trong bán kính
+    });
+
+    if (!nearbyLocations.length) {
+      return res.status(200).json([]);  // Trả về danh sách rỗng nếu không tìm thấy địa điểm
+    }
+
+    // Lấy danh sách hotel liên quan đến các location tìm thấy
+    const locationIDs = nearbyLocations.map((loc) => loc._id);
+    const hotels = await Hotel.find({
+      serviceID: { $in: await Service.find({ locationID: { $in: locationIDs } }).select("_id") },
+    }).populate({
+      path: "serviceID",
+      populate: {
+        path: "locationID",
+        model: "Location",
+      },
+    });
+
+    // Tính toán khoảng cách từ tọa độ trung tâm đến mỗi khách sạn
+    const hotelsWithDistance = hotels.map((hotel) => {
+      const hotelLocation = hotel.serviceID.locationID;
+      const distanceToHotel = haversineDistance(latitude, longitude, hotelLocation.latitude, hotelLocation.longitude);
+      return {
+        ...hotel.toObject(),  // Chuyển object khách sạn thành object thuần
+        distanceToCenter: distanceToHotel,  // Thêm khoảng cách
+      };
+    });
+
+    // Trả kết quả
+    res.status(200).json(hotelsWithDistance);
+  } catch (err) {
+    console.error("Error:", err.message);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+
 
 module.exports = router;
 
