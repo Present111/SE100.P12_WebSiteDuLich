@@ -23,6 +23,7 @@ const facilityRoutes = require("./routes/facilityRoutes");
 const facilitytypeRoutes = require("./routes/facilityTypeRoutes");
 const suitabilityRoutes = require("./routes/suitabilityRoutes");
 const path = require("path");
+const uploadRoutes = require("./routes/uploadRouter"); // Route cho upload ảnh
 
 // Load .env file
 dotenv.config();
@@ -67,10 +68,10 @@ app.use("/api/price-categories", priceCategoriesRoutes);
 app.use("/api/facility", facilityRoutes);
 app.use("/api/facility-types", facilitytypeRoutes);
 app.use("/api/suitabilities", suitabilityRoutes);
-
+app.use("/api/upload", uploadRoutes); // Thêm route upload
 // Swagger Documentation
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 //Auth
 app.use("/api/auth", authRoutes);
 // Cung cấp file ảnh từ thư mục "uploads"
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+//app.use("/uploads", express.static(path.join(__dirname, "uploads")));

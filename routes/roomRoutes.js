@@ -4,6 +4,7 @@ const authMiddleware = require("../middlewares/authMiddleware");
 const roleMiddleware = require("../middlewares/roleMiddleware");
 const upload = require("../middlewares/uploadMiddleware");
 const roomService = require("../services/roomService");
+const Room = require("../models/Room");
 const router = express.Router();
 
 /**
@@ -13,182 +14,73 @@ const router = express.Router();
  *   description: API quản lý Rooms
  */
 
-// CREATE - Tạo mới Room
 /**
  * @swagger
  * /api/rooms:
  *   post:
- *     summary: Tạo mới một Room (Chỉ Provider)
+ *     summary: Tạo một phòng mới
  *     tags: [Rooms]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
  *             properties:
- *               roomID:
- *                 type: string
- *                 example: R001
  *               hotelID:
  *                 type: string
- *                 example: H001
- *               roomType:
- *                 type: string
- *                 example: Deluxe
- *               price:
- *                 type: number
- *                 example: 1000
- *               discountPrice:
- *                 type: number
- *                 example: 800
- *               active:
- *                 type: boolean
- *                 example: true
- *               pictures:
- *                 type: array
- *                 items:
- *                   type: string
- *                   format: binary
- *               capacity:
- *                 type: object
- *                 properties:
- *                   adults:
- *                     type: number
- *                     example: 2
- *                   children:
- *                     type: number
- *                     example: 1
- *                   RoomNumber:
- *                     type: number
- *                     example: 1
- *               facilities:
- *                 type: array
- *                 items:
- *                   type: string
- *                 example: ["64f6b3c9e3a1a4321f2c1a8b", "64f7c3c9e3a1a4321f2c1a8c"]
- *               roomsAvailable:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     date:
- *                       type: string
- *                       format: date
- *                       example: "2024-12-01"
- *                     availableRooms:
- *                       type: number
- *                       example: 10
+ *                 description: ID của khách sạn
+ *             required:
+ *               - hotelID
  *     responses:
  *       201:
- *         description: Room created successfully
- *       403:
- *         description: Access denied
+ *         description: Tạo phòng thành công
  *       400:
- *         description: Validation error
+ *         description: Lỗi đầu vào
  *       500:
- *         description: Server error
+ *         description: Lỗi server
  */
 router.post(
   "/",
-  authMiddleware,
-  roleMiddleware(["Provider"]),
-  upload.array("pictures", 5), // Cho phép upload tối đa 5 ảnh
-  [
-    body("roomID").notEmpty().withMessage("Room ID is required"),
-    body("hotelID").notEmpty().withMessage("Hotel ID is required"),
-    body("roomType").notEmpty().withMessage("Room Type is required"),
-    body("price").isFloat({ min: 0 }).withMessage("Price must be at least 0"),
-    body("discountPrice")
-      .optional()
-      .isFloat({ min: 0 })
-      .withMessage("Discount Price must be at least 0"),
-    body("discountPrice").custom((value, { req }) => {
-      if (value && value >= req.body.price) {
-        throw new Error("Discount Price must be less than Price");
-      }
-      return true;
-    }),
-    body("active")
-      .optional()
-      .isBoolean()
-      .withMessage("Active must be a boolean"),
-    body("capacity.adults")
-      .isInt({ min: 1 })
-      .withMessage("Capacity (adults) must be at least 1"),
-    body("capacity.children")
-      .isInt({ min: 0 })
-      .withMessage("Capacity (children) must be at least 0"),
-    body("capacity.roomNumber")
-      .isInt({ min: 0 })
-      .withMessage("roomNumber must be at least 0"),
-    body("facilities")
-      .optional()
-      .isArray()
-      .withMessage("Facilities must be an array of IDs"),
-    body("roomsAvailable")
-      .isArray()
-      .withMessage("roomsAvailable must be an array of objects")
-      .custom((value) => {
-        if (!Array.isArray(value)) return false;
-        return value.every(
-          (item) =>
-            item.hasOwnProperty("date") &&
-            item.hasOwnProperty("availableRooms") &&
-            !isNaN(new Date(item.date).getTime()) &&
-            item.availableRooms >= 0
-        );
-      })
-      .withMessage(
-        "Each room availability must have a valid date and availableRooms"
-      ),
-  ],
   async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
     try {
-      const {
-        roomID,
+      const { hotelID } = req.body;
+
+      if (!hotelID) {
+        return res.status(400).json({ error: "hotelID là bắt buộc." });
+      }
+
+      // Giá trị mặc định
+      const defaultRoomData = {
+        roomID: `room_${Date.now()}`, // Tạo ID duy nhất
         hotelID,
-        roomType,
-        price,
-        discountPrice,
-        active,
-        capacity,
-        facilities,
-        roomsAvailable, // Mảng chứa các thông tin ngày và số phòng trống
-      } = req.body;
+        roomType: "Standard",
+        price: 100,
+        discountPrice: 80,
+        pictures: [],
+        active: false,
+        capacity: {
+          adults: 0,
+          children: 0,
+          roomNumber: 0,
+        },
+        facilities: [],
+        roomsAvailable: [],
+      };
 
-      // Lưu đường dẫn của tất cả các ảnh đã tải lên
-      const pictures = req.files.map((file) => `/uploads/${file.filename}`);
+      // Tạo phòng mới
+      const newRoom = await Room.create(defaultRoomData);
 
-      // Gọi dịch vụ để tạo Room mới
-      const newRoom = await roomService.createRoom({
-        roomID,
-        hotelID,
-        roomType,
-        price,
-        discountPrice,
-        active,
-        capacity,
-        facilities,
-        pictures, // Gửi danh sách đường dẫn ảnh
-        roomsAvailable, // Mảng roomsAvailable chứa ngày và số phòng trống
-      });
-
-      res
-        .status(201)
-        .json({ message: "Room created successfully", data: newRoom });
+      res.status(201).json(newRoom);
     } catch (err) {
+      console.log(err)
       res.status(500).json({ error: err.message });
     }
   }
 );
+
 
 // READ ALL - Lấy danh sách Rooms
 /**
@@ -252,60 +144,23 @@ router.get("/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// UPDATE - Cập nhật thông tin Room
-/**
- * @swagger
- * /api/rooms/{id}:
- *   put:
- *     summary: Cập nhật thông tin một Room
- *     tags: [Rooms]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         schema:
- *           type: string
- *           example: 64f6b3c9e3a1a4321f2c1a8b
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               roomType:
- *                 type: string
- *                 example: Standard
- *               availableRooms:
- *                 type: number
- *                 example: 10
- *               availableDate:
- *                 type: string
- *                 format: date
- *                 example: 2024-01-15
- *               active:
- *                 type: boolean
- *                 example: false
- *     responses:
- *       200:
- *         description: Room updated successfully
- *       404:
- *         description: Room not found
- *       500:
- *         description: Server error
- */
 router.put("/:id", authMiddleware, async (req, res) => {
   try {
-    const updatedRoom = await roomService.updateRoomById(
+    console.log(req.body)
+    // Cập nhật thông tin Room trực tiếp từ req.body
+    const updatedRoom = await Room.findByIdAndUpdate(
       req.params.id,
-      req.body
+      { $set: req.body }, // Ghi đè toàn bộ các trường truyền vào
+      { new: true, runValidators: true } // Tùy chọn để trả về dữ liệu đã cập nhật và kiểm tra tính hợp lệ
     );
-    res
-      .status(200)
-      .json({ message: "Room updated successfully", data: updatedRoom });
+
+    if (!updatedRoom) {
+      return res.status(404).json({ message: "Room not found" });
+    }
+
+    res.status(200).json({ message: "Room updated successfully", data: updatedRoom });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });

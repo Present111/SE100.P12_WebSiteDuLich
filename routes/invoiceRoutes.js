@@ -1,6 +1,7 @@
 const express = require("express");
 const { body, validationResult } = require("express-validator");
 const invoiceService = require("../services/invoiceService");
+const Invoice = require("../models/Invoice");
 const router = express.Router();
 
 /**
@@ -55,61 +56,108 @@ const router = express.Router();
  *       500:
  *         description: Server error
  */
-router.post(
-  "/",
-  [
-    body("invoiceID").notEmpty().withMessage("Invoice ID is required"),
-    body("userID").notEmpty().withMessage("User ID is required"),
-    body("serviceID").notEmpty().withMessage("Service ID is required"),
-    body("quantity")
-      .isInt({ min: 1 })
-      .withMessage("Quantity must be at least 1"),
-    body("totalAmount")
-      .isNumeric()
-      .withMessage("Total amount must be a number"),
-    body("issueDate").notEmpty().withMessage("Issue date is required"),
-    body("paymentStatus")
-      .isIn(["paid", "unpaid"])
-      .withMessage("Invalid payment status"),
-  ],
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
 
-    try {
-      const newInvoice = await invoiceService.createInvoice(req.body);
-      res
-        .status(201)
-        .json({ message: "Invoice created successfully", data: newInvoice });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  }
-);
 
-// READ ALL - Lấy danh sách Invoices
+// CREATE - Tạo mới hóa đơn
 /**
  * @swagger
  * /api/invoices:
- *   get:
- *     summary: Lấy danh sách tất cả hóa đơn
+ *   post:
+ *     summary: Tạo mới hóa đơn
  *     tags: [Invoices]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               userID:
+ *                 type: string
+ *                 description: ID của người tạo hóa đơn
+ *               serviceID:
+ *                 type: string
+ *                 description: ID của dịch vụ được đặt
+ *               quantity:
+ *                 type: number
+ *                 description: Số lượng đặt
+ *               totalAmount:
+ *                 type: number
+ *                 description: Tổng tiền
+ *               roomID:
+ *                 type: string
+ *                 description: ID của phòng đã đặt
+ *               checkInDate:
+ *                 type: string
+ *                 format: date
+ *                 description: Ngày nhận phòng
+ *               checkOutDate:
+ *                 type: string
+ *                 format: date
+ *                 description: Ngày trả phòng
  *     responses:
- *       200:
- *         description: Danh sách hóa đơn
+ *       201:
+ *         description: Hóa đơn được tạo thành công
+ *       400:
+ *         description: Dữ liệu đầu vào không hợp lệ
  *       500:
  *         description: Server error
  */
-router.get("/", async (req, res) => {
+router.post("/", async (req, res) => {
   try {
-    const invoices = await invoiceService.getAllInvoices();
-    res.status(200).json(invoices);
+    const { userID, serviceID, quantity, totalAmount, roomID, checkInDate, checkOutDate ,pictures,invoiceID} = req.body;
+    console.log("HELELLO")
+    // Tạo invoice mới
+    const newInvoice = new Invoice({
+      invoiceID,
+      userID,
+      serviceID,
+      quantity,
+      totalAmount,
+      issueDate: new Date(), // Ngày tạo hóa đơn
+      paymentStatus: "unpaid", // Mặc định trạng thái thanh toán là unpaid
+      status: "chờ xác nhận", // Mặc định trạng thái là chờ xác nhận
+      roomID,
+      checkInDate,
+      checkOutDate,
+      pictures
+    });
+
+    // Lưu vào cơ sở dữ liệu
+    await newInvoice.save();
+
+    // Trả về hóa đơn mới tạo
+    res.status(201).json(newInvoice);
   } catch (err) {
+    console.log("LOI",err)
     res.status(500).json({ error: err.message });
   }
 });
+
+
+// API lấy hóa đơn theo userID
+router.get("/user/:userID", async (req, res) => {
+  try {
+    const { userID } = req.params;
+
+    // Tìm tất cả hóa đơn theo userID và populate cả serviceID và roomID
+    const invoices = await Invoice.find({ userID })
+      .populate('serviceID')  // Populate serviceID
+      .populate('roomID');    // Populate roomID
+
+    if (!invoices || invoices.length === 0) {
+      return res.status(404).json({ message: "Không tìm thấy hóa đơn nào cho userID này" });
+    }
+
+    // Trả về danh sách hóa đơn với thông tin serviceID và roomID đã được populate
+    res.status(200).json(invoices);
+  } catch (err) {
+    console.error("Lỗi khi lấy hóa đơn:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 
 // READ ONE - Lấy chi tiết Invoice
 /**
@@ -219,6 +267,26 @@ router.delete("/:id", async (req, res) => {
     await invoiceService.deleteInvoiceById(req.params.id);
     res.status(200).json({ message: "Invoice deleted successfully" });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+// API lấy tất cả đơn hàng
+router.get("/orders", async (req, res) => {
+  try {
+    // Tìm tất cả các đơn hàng và populate các trường liên quan
+    const orders = await Order.find()
+      .populate('userID')     // Populate thông tin người dùng
+      .populate('serviceID')  // Populate thông tin dịch vụ
+      .populate('roomID');    // Populate thông tin phòng (nếu có)
+
+    if (!orders || orders.length === 0) {
+      return res.status(404).json({ message: "Không tìm thấy đơn hàng nào" });
+    }
+
+    // Trả về danh sách đơn hàng đã populate thông tin
+    res.status(200).json(orders);
+  } catch (err) {
+    console.error("Lỗi khi lấy danh sách đơn hàng:", err);
     res.status(500).json({ error: err.message });
   }
 });

@@ -22,12 +22,8 @@ const roomSchema = new mongoose.Schema({
   }, // Giá gốc
   discountPrice: {
     type: Number,
-    validate: {
-      validator: function (value) {
-        return value === null || value < this.price;
-      },
-      message: "Discount price must be less than the original price.",
-    },
+   required: true,
+    min: 0,
   }, // Giá giảm
   pictures: [
     {

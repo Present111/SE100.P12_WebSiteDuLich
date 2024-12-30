@@ -264,166 +264,185 @@ router.get("/details", async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /api/hotels/filter:
- *   post:
- *     summary: Lọc danh sách Hotels chỉ theo loại khách sạn (HotelType)
- *     tags: [Hotels]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               priceCategories:
- *                 type: array
- *                 items:
- *                   type: string
- *                   description: "Mảng ObjectId của PriceCategory"
- *                 example: [""]
- *               suitabilities:
- *                 type: array
- *                 items:
- *                   type: string
- *                   description: "Mảng ObjectId của Suitability"
- *                 example: [""]
- *               facilities:
- *                 type: array
- *                 items:
- *                   type: string
- *                   description: "Mảng ObjectId của Facility"
- *                 example: ["6748d61d7a0ec298a6836c75"]
- *               facilityTypes:
- *                 type: array
- *                 items:
- *                   type: string
- *                   description: "Mảng ObjectId của FacilityType"
- *                 example: [""]
- *               hotelTypes:
- *                 type: array
- *                 items:
- *                   type: string
- *                   description: "Mảng ObjectId của HotelType"
- *                 example: [""]
- *     responses:
- *       200:
- *         description: Danh sách Hotels phù hợp với loại khách sạn
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   hotelID:
- *                     type: string
- *                     description: ID của Hotel
- *                   serviceID:
- *                     type: object
- *                     description: Chi tiết dịch vụ của Hotel
- *                   rooms:
- *                     type: array
- *                     items:
- *                       type: object
- *                       properties:
- *                         roomID:
- *                           type: string
- *                           description: ID của Room
- *                         facilities:
- *                           type: array
- *                           description: Danh sách tiện ích của Room
- *       500:
- *         description: Lỗi máy chủ
- */
-
+const haversineDistance = (lat1, lon1, lat2, lon2) => {
+  const toRad = (degree) => (degree * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return 6371 * c; // Earth radius in kilometers
+};
 router.post("/filter", async (req, res) => {
   try {
-    const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] Request Body:`, req.body); 
-    let { priceCategories = [], suitabilities = [], facilities = [], facilityTypes = [], hotelTypes = [] } = req.body;
-
-    // Chuyển chuỗi thành mảng nếu cần
+    const {
+      priceCategories = [],
+      suitabilities = [],
+      facilities = [],
+      facilityTypes = [],
+      hotelTypes = [],
+      latitude,
+      longitude,
+      distance,
+      dates = [],
+      capacity = null,
+    } = req.body;
+console.log(capacity)
+    // Helper to parse parameters into arrays
     const parseArray = (param) => (Array.isArray(param) ? param : param.split(","));
-    priceCategories = parseArray(priceCategories);
-    suitabilities = parseArray(suitabilities);
-    facilities = parseArray(facilities);
-    facilityTypes = parseArray(facilityTypes);
-    hotelTypes = parseArray(hotelTypes);
-
-    // Kiểm tra ObjectId hợp lệ
     const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
 
-    // Lọc ObjectId hợp lệ
-    priceCategories = priceCategories.filter(isValidObjectId);
-    suitabilities = suitabilities.filter(isValidObjectId);
-    facilities = facilities.filter(isValidObjectId);
-    facilityTypes = facilityTypes.filter(isValidObjectId);
-    hotelTypes = hotelTypes.filter(isValidObjectId);
+    const parsedPriceCategories = parseArray(priceCategories).filter(isValidObjectId);
+    const parsedSuitabilities = parseArray(suitabilities).filter(isValidObjectId);
+    const parsedFacilities = parseArray(facilities).filter(isValidObjectId);
+    const parsedFacilityTypes = parseArray(facilityTypes).filter(isValidObjectId);
+    const parsedHotelTypes = parseArray(hotelTypes).filter(isValidObjectId);
 
-    // Xây dựng bộ lọc cho Hotel
-    const hotelFilters = {};
-    if (hotelTypes.length) hotelFilters.hotelTypeID = { $in: hotelTypes };
+    const hotelFilters = [];
 
-    // Tìm Service IDs dựa trên tất cả các tiêu chí
+    if (parsedHotelTypes.length) {
+      hotelFilters.push({ hotelTypeID: { $in: parsedHotelTypes } });
+    }
+
     let serviceFilters = {};
-    if (facilityTypes.length) serviceFilters.facilities = { $all: facilityTypes }; // $all: Thỏa mãn tất cả các facilityTypes
-    if (priceCategories.length) serviceFilters.priceCategories = { $all: priceCategories }; // $all: Thỏa mãn tất cả các priceCategories
-    if (suitabilities.length) serviceFilters.suitability = { $all: suitabilities }; // $all: Thỏa mãn tất cả các suitabilities
+    if (parsedFacilityTypes.length) serviceFilters.facilities = { $all: parsedFacilityTypes };
+    if (parsedPriceCategories.length) serviceFilters.priceCategories = { $all: parsedPriceCategories };
+    if (parsedSuitabilities.length) serviceFilters.suitability = { $all: parsedSuitabilities };
 
     if (Object.keys(serviceFilters).length) {
       const services = await Service.find(serviceFilters).select("_id");
       const serviceIDs = services.map((service) => service._id);
 
-      // Chỉ áp dụng lọc Service nếu có kết quả
       if (serviceIDs.length) {
-        hotelFilters.serviceID = { $in: serviceIDs };
+        hotelFilters.push({ serviceID: { $in: serviceIDs } });
       } else {
-        // Không có service nào phù hợp => trả về mảng rỗng
         return res.status(200).json([]);
       }
     }
 
-    // Thêm lọc Room dựa trên Facilities
-    if (facilities.length) {
-      const rooms = await Room.find({ facilities: { $all: facilities } }).select("hotelID");
+    if (parsedFacilities.length) {
+      
+      const rooms = await Room.find({ facilities: { $all: parsedFacilities } , capacity:  { $all: capacity } }).select("hotelID");
+      console.log(rooms)
       const hotelIDs = rooms.map((room) => room.hotelID);
 
       if (hotelIDs.length) {
-        if (hotelFilters._id) {
-          hotelFilters._id.$in = hotelFilters._id.$in.filter((id) => hotelIDs.includes(id));
-        } else {
-          hotelFilters._id = { $in: hotelIDs };
-        }
+        hotelFilters.push({ _id: { $in: hotelIDs } });
       } else {
-        // Không có Room nào phù hợp => trả về mảng rỗng
+        return res.status(200).json([]);
+      }
+    }
+    else{
+      const rooms = await Room.find({  capacity:  capacity  }).select("hotelID");
+      console.log(rooms)
+      const hotelIDs = rooms.map((room) => room.hotelID);
+
+      if (hotelIDs.length) {
+        hotelFilters.push({ _id: { $in: hotelIDs } });
+      } else {
         return res.status(200).json([]);
       }
     }
 
-    // Truy vấn Hotel với thông tin chi tiết
-    const hotels = await Hotel.find(hotelFilters)
+    
+
+    if (latitude && longitude && distance) {
+      if (
+        typeof latitude !== "number" ||
+        typeof longitude !== "number" ||
+        typeof distance !== "number" ||
+        distance <= 0
+      ) {
+        return res.status(400).json({ error: "Invalid latitude, longitude, or distance" });
+      }
+
+      const locations = await Location.find();
+      const nearbyLocations = locations.filter((location) => {
+        const distanceToCenter = haversineDistance(
+          latitude,
+          longitude,
+          location.latitude,
+          location.longitude
+        );
+        return distanceToCenter <= distance;
+      });
+
+      if (!nearbyLocations.length) {
+        return res.status(200).json([]);
+      }
+
+      const locationIDs = nearbyLocations.map((loc) => loc._id);
+      const servicesNearby = await Service.find({ locationID: { $in: locationIDs } }).select("_id");
+      const serviceIDsNearby = servicesNearby.map((service) => service._id);
+
+      if (serviceIDsNearby.length) {
+        hotelFilters.push({ serviceID: { $in: serviceIDsNearby } });
+      } else {
+        return res.status(200).json([]);
+      }
+    }
+
+    const finalFilter = hotelFilters.length > 1 ? { $and: hotelFilters } : hotelFilters[0] || {};
+
+    const hotels = await Hotel.find(finalFilter)
       .populate({
         path: "serviceID",
         populate: [
-          { path: "locationID", model: "Location" }, // Populate Service -> Location
-          { path: "facilities", model: "FacilityType" }, // Populate Service -> FacilityType
-          { path: "priceCategories", model: "PriceCategory" }, // Populate Service -> PriceCategory
-          { path: "suitability", model: "Suitability" }, // Populate Service -> Suitability
+          { path: "locationID", model: "Location" },
+          { path: "facilities", model: "FacilityType" },
+          { path: "priceCategories", model: "PriceCategory" },
+          { path: "suitability", model: "Suitability" },
         ],
       })
-      .populate("hotelTypeID", "type") // Populate HotelType
+      .populate("hotelTypeID", "type")
       .exec();
 
-    res.status(200).json(hotels);
+    const enrichedHotels = await Promise.all(
+  hotels.map(async (hotel) => {
+    const rooms = await Room.find({ hotelID: hotel._id });
+
+    let lowestDiscountPrice = Infinity;
+    let correspondingPrice = null;
+
+    rooms.forEach((room) => {
+      if (room.discountPrice && room.discountPrice < lowestDiscountPrice) {
+        lowestDiscountPrice = room.discountPrice;
+        correspondingPrice = room.price; // Giá gốc tương ứng với discount thấp nhất
+      }
+    });
+
+    const distanceToHotel =
+      latitude && longitude
+        ? haversineDistance(latitude, longitude, hotel.serviceID.locationID.latitude, hotel.serviceID.locationID.longitude)
+        : null;
+
+    return {
+      ...hotel.toObject(),
+      lowestDiscountPrice: lowestDiscountPrice < Infinity ? lowestDiscountPrice : null,
+      correspondingPrice: correspondingPrice, // Giá gốc tương ứng với discount thấp nhất
+      distance: distanceToHotel,
+      rooms: rooms 
+    };
+  })
+);
+
+
+    res.status(200).json(enrichedHotels);
   } catch (err) {
     console.error("Error:", err.message);
     res.status(500).json({ error: "Server error" });
   }
 });
+
+
+
+
+
+
 
 
 /**
@@ -443,10 +462,10 @@ router.post("/filter", async (req, res) => {
  *             properties:
  *               latitude:
  *                 type: number
- *                 example: 10.8510034
+ *                 example: 10.862865
  *               longitude:
  *                 type: number
- *                 example: 106.7411957
+ *                 example: 106.7594136
  *               distance:
  *                 type: number
  *                 example: 3

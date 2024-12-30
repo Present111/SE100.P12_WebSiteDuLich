@@ -94,8 +94,12 @@ const getHotelById1 = async (id) => {
             model: "Location",
           },
           {
-            path: "providerID", // Populate thông tin Provider
+            path: "providerID", // Populate thông tin Provider và userID
             model: "Provider",
+            populate: {
+              path: "userID", // Populate thông tin User từ userID
+              model: "User",
+            },
           },
           {
             path: "facilities", // Populate tiện ích dịch vụ
@@ -126,22 +130,20 @@ const getHotelById1 = async (id) => {
     }
 
     // Truy vấn thông tin các phòng (rooms) tham chiếu đến khách sạn này
-    const rooms = await Room.find({ hotelID : id })
+    const rooms = await Room.find({ hotelID: id })
       .populate({
         path: "facilities", // Populate tiện ích phòng
         model: "Facility",
-      })
-      ;
+      });
 
-    // Thêm thông tin phòng vào thông tin khách sạn
-   
-
-    return { hotel,rooms}; // Trả về thông tin khách sạn với tất cả các dữ liệu đã populate, bao gồm phòng
+    // Trả về thông tin khách sạn với tất cả các dữ liệu đã populate, bao gồm phòng
+    return { hotel, rooms };
   } catch (err) {
     // Lỗi trong quá trình truy vấn hoặc populate
     throw new Error(err.message);
   }
 };
+
 
 
 

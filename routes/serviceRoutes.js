@@ -4,6 +4,9 @@ const authMiddleware = require("../middlewares/authMiddleware");
 const roleMiddleware = require("../middlewares/roleMiddleware");
 const upload = require("../middlewares/uploadMiddleware");
 const serviceService = require("../services/serviceService");
+const Service = require("../models/Service");
+const Location = require("../models/Location");
+const Hotel = require("../models/Hotel");
 const router = express.Router();
 
 /**
@@ -14,6 +17,12 @@ const router = express.Router();
  */
 
 // CREATE - Tạo mới Service
+
+
+
+
+module.exports = router;
+
 /**
  * @swagger
  * /api/services:
@@ -88,93 +97,93 @@ const router = express.Router();
  *       500:
  *         description: Server error
  */
-router.post(
-  "/",
-  authMiddleware,
-  roleMiddleware(["Provider"]),
-  upload.array("images", 10), // Cho phép upload tối đa 10 ảnh
-  [
-    body("serviceID").notEmpty().withMessage("Service ID is required"),
-    body("providerID")
-      .isMongoId()
-      .withMessage("Provider ID must be a valid MongoID"),
-    body("locationID")
-      .isMongoId()
-      .withMessage("Location ID must be a valid MongoID"),
-    body("serviceName").notEmpty().withMessage("Service name is required"),
-    body("price").isNumeric().withMessage("Price must be a number"),
-    body("discountPrice")
-      .optional()
-      .isNumeric()
-      .withMessage("Discount Price must be a number"),
-    body("status").isIn(["Active", "Inactive"]).withMessage("Invalid status"),
-    body("facilities")
-      .optional()
-      .isArray()
-      .withMessage("Facilities must be an array of IDs"),
-    body("priceCategories")
-      .optional()
-      .isArray()
-      .withMessage("Price categories must be an array of IDs"),
-    body("suitability")
-      .optional()
-      .isArray()
-      .withMessage("Suitability must be an array of IDs"),
-    body("reviews")
-      .optional()
-      .isArray()
-      .withMessage("Reviews must be an array of IDs"),
-  ],
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
+// router.post(
+//   "/",
+//   authMiddleware,
+//   roleMiddleware(["Provider"]),
+//   upload.array("images", 10), // Cho phép upload tối đa 10 ảnh
+//   [
+//     body("serviceID").notEmpty().withMessage("Service ID is required"),
+//     body("providerID")
+//       .isMongoId()
+//       .withMessage("Provider ID must be a valid MongoID"),
+//     body("locationID")
+//       .isMongoId()
+//       .withMessage("Location ID must be a valid MongoID"),
+//     body("serviceName").notEmpty().withMessage("Service name is required"),
+//     body("price").isNumeric().withMessage("Price must be a number"),
+//     body("discountPrice")
+//       .optional()
+//       .isNumeric()
+//       .withMessage("Discount Price must be a number"),
+//     body("status").isIn(["Active", "Inactive"]).withMessage("Invalid status"),
+//     body("facilities")
+//       .optional()
+//       .isArray()
+//       .withMessage("Facilities must be an array of IDs"),
+//     body("priceCategories")
+//       .optional()
+//       .isArray()
+//       .withMessage("Price categories must be an array of IDs"),
+//     body("suitability")
+//       .optional()
+//       .isArray()
+//       .withMessage("Suitability must be an array of IDs"),
+//     body("reviews")
+//       .optional()
+//       .isArray()
+//       .withMessage("Reviews must be an array of IDs"),
+//   ],
+//   async (req, res) => {
+//     const errors = validationResult(req);
+//     if (!errors.isEmpty()) {
+//       return res.status(400).json({ errors: errors.array() });
+//     }
 
-    try {
-      const {
-        serviceID,
-        providerID,
-        locationID,
-        serviceName,
-        price,
-        discountPrice,
-        description,
-        status,
-        facilities,
-        priceCategories,
-        suitability,
-        reviews,
-      } = req.body;
+//     try {
+//       const {
+//         serviceID,
+//         providerID,
+//         locationID,
+//         serviceName,
+//         price,
+//         discountPrice,
+//         description,
+//         status,
+//         facilities,
+//         priceCategories,
+//         suitability,
+//         reviews,
+//       } = req.body;
 
-      // Lấy danh sách đường dẫn ảnh từ file upload
-      const images = req.files.map((file) => `/uploads/${file.filename}`);
+//       // Lấy danh sách đường dẫn ảnh từ file upload
+//       const images = req.files.map((file) => `/uploads/${file.filename}`);
 
-      // Tạo Service mới
-      const newService = await serviceService.createService({
-        serviceID,
-        providerID,
-        locationID,
-        serviceName,
-        price,
-        discountPrice,
-        description,
-        status,
-        facilities,
-        priceCategories,
-        suitability,
-        reviews,
-        images, // Lưu mảng ảnh
-      });
+//       // Tạo Service mới
+//       const newService = await serviceService.createService({
+//         serviceID,
+//         providerID,
+//         locationID,
+//         serviceName,
+//         price,
+//         discountPrice,
+//         description,
+//         status,
+//         facilities,
+//         priceCategories,
+//         suitability,
+//         reviews,
+//         images, // Lưu mảng ảnh
+//       });
 
-      res
-        .status(201)
-        .json({ message: "Service created successfully", data: newService });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  }
-);
+//       res
+//         .status(201)
+//         .json({ message: "Service created successfully", data: newService });
+//     } catch (err) {
+//       res.status(500).json({ error: err.message });
+//     }
+//   }
+// );
 
 // READ ALL - Lấy danh sách Services
 /**
@@ -273,5 +282,149 @@ router.delete("/:id", authMiddleware, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+
+router.post(
+  "/:id",
+  authMiddleware,
+  roleMiddleware(["Provider", "Admin"]),
+  [
+    body("serviceName").optional().notEmpty().withMessage("Service name is required"),
+    body("description").optional().isString().withMessage("Description must be a string"),
+    body("status").optional().isIn(["Active", "Inactive"]).withMessage("Invalid status"),
+    body("facilities").optional().isArray().withMessage("Facilities must be an array of IDs"),
+    body("priceCategories").optional().isArray().withMessage("Price categories must be an array of IDs"),
+    body("suitability").optional().isArray().withMessage("Suitability must be an array of IDs"),
+    body("images").optional().isArray().withMessage("Images must be an array of image URLs or base64 strings"),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+   
+    try {
+      const {
+        serviceName,
+        description,
+        status,
+        facilities,
+        priceCategories,
+        suitability,
+        images, // New images field in the body
+      } = req.body;
+
+      // Build the update object dynamically
+      const updateFields = {};
+      if (serviceName) updateFields.serviceName = serviceName;
+      if (description) updateFields.description = description;
+      if (status) updateFields.status = status;
+      if (facilities) updateFields.facilities = facilities;
+      if (priceCategories) updateFields.priceCategories = priceCategories;
+      if (suitability) updateFields.suitability = suitability;
+      if (images) updateFields.images = images; // Directly use images from body
+
+      // Update service in the database
+      const updatedService = await serviceService.updateServiceById(req.params.id, updateFields);
+
+      if (!updatedService) {
+        return res.status(404).json({ error: "Service not found" });
+      }
+
+      res.status(200).json({ message: "Service updated successfully", data: updatedService });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+
+
+/**
+ * @swagger
+ * /api/services:
+ *   post:
+ *     summary: Tạo một Service mới
+ *     tags: [Services]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               providerID:
+ *                 type: string
+ *                 example: 64f6b3c9e3a1a4321f2c1a8b
+ *     responses:
+ *       201:
+ *         description: Service created successfully
+ *       400:
+ *         description: Bad request
+ *       500:
+ *         description: Server error
+ */
+router.post("/", async (req, res) => {
+  try {
+    const { providerID } = req.body;
+
+    if (!providerID) {
+      return res.status(400).json({ error: "ProviderID is required" });
+    }
+
+    // Tạo mới một Location với dữ liệu mặc định
+    const newLocation = new Location({
+      locationID: `LOC-${Date.now()}`,
+      locationName: "Default Location",
+      description: "This is a default location",
+      latitude: 10.762622,
+      longitude: 106.660172,
+    });
+
+    const savedLocation = await newLocation.save();
+
+    // Tạo mới một Service với locationID từ Location vừa tạo
+    const newService = new Service({
+      serviceID: `SER-${Date.now()}`,
+      providerID,
+      locationID: savedLocation._id,
+      serviceName: "Default Service",
+      price: 100,
+      discountPrice: 80,
+      description: "This is a default service",
+      status: "Inactive",
+      facilities: [],
+      priceCategories: [],
+      suitability: [],
+      reviews: [],
+      images: ["default-image.jpg"],
+    });
+
+    const savedService = await newService.save();
+
+    // Tạo mới một Hotel với serviceID vừa tạo và dữ liệu mặc định
+    const newHotel = new Hotel({
+      hotelID: `HOT-${Date.now()}`,
+      serviceID: savedService._id,
+      starRating: 3, // Giá trị mặc định
+      hotelTypeID: null, // Tạo ObjectId giả định
+    });
+
+    const savedHotel = await newHotel.save();
+
+    res.status(201).json({
+      message: "Hotel and Service created successfully",
+      service: savedService,
+      hotel: savedHotel,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 module.exports = router;

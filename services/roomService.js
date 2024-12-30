@@ -124,6 +124,7 @@ const getAllRooms = async () => {
 
 // Lấy Room theo ID
 const getRoomById = async (id) => {
+  console.log("HELLLONEW")
   return await Room.findById(id).populate("hotelID", "hotelName");
 };
 

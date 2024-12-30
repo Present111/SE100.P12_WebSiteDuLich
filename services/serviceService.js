@@ -194,6 +194,17 @@ const validateReviewIDs = async (reviewIDs) => {
   }
   return invalidIDs;
 };
+const updateServiceById = async (id, updateFields) => {
+  // Tìm và cập nhật dịch vụ trong cơ sở dữ liệu
+  const updatedService = await Service.findByIdAndUpdate(
+    id, // ID của dịch vụ
+    { $set: updateFields }, // Cập nhật các trường được truyền vào
+    { new: true, runValidators: true } // Trả về bản ghi sau khi cập nhật, kiểm tra tính hợp lệ
+  );
+
+  console.log("UPDATE",updatedService)
+  return updatedService; // Trả về dịch vụ sau khi cập nhật
+};
 
 module.exports = {
   createService,
@@ -204,4 +215,5 @@ module.exports = {
   validatePriceCategoryIDs,
   validateSuitabilityIDs,
   validateReviewIDs,
+  updateServiceById
 };

@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 const hotelSchema = new mongoose.Schema({
-  hotelID: { type: String, required: true, unique: true }, // Mã khách sạn
+  hotelID: { type: String, unique: true }, // Mã khách sạn
   serviceID: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Service", // FK tới bảng Service
@@ -11,7 +11,7 @@ const hotelSchema = new mongoose.Schema({
   hotelTypeID: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "HotelType", // FK tới bảng HotelType
-    required: true,
+    
   }, // Loại hình khách sạn
 });
 

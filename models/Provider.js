@@ -14,6 +14,9 @@ const providerSchema = new mongoose.Schema({
       ref: "Service", // Tham chiếu đến bảng Service
     },
   ], // Mảng các dịch vụ mà Provider cung cấp
+  bankName: { type: String }, // Tên ngân hàng
+  accountNumber: { type: String }, // Số tài khoản
+  accountName: { type: String }, // Tên tài khoản
 });
 
 module.exports = mongoose.model("Provider", providerSchema);

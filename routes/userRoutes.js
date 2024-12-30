@@ -47,9 +47,23 @@ router.get("/", authMiddleware, roleMiddleware(["Admin"]), async (req, res) => {
 });
 
 router.get(
+  "/userID/:userID",
+ 
+  async (req, res) => {
+    try {
+      console.log("HELLO")
+      const user = await userService.getUserByUserID(req.params.userID);
+      if (!user) return res.status(404).json({ error: "User not found" });
+      res.status(200).json(user);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+router.get(
   "/:id",
-  authMiddleware,
-  roleMiddleware(["Admin"]),
+ 
   async (req, res) => {
     try {
       const user = await userService.getUserById(req.params.id);
@@ -63,8 +77,7 @@ router.get(
 
 router.put(
   "/:id",
-  authMiddleware,
-  roleMiddleware(["Admin"]),
+ 
   async (req, res) => {
     try {
       const { role } = req.body;
