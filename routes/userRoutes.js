@@ -37,11 +37,14 @@ router.post(
   }
 );
 
-router.get("/", authMiddleware, roleMiddleware(["Admin"]), async (req, res) => {
+router.get("/", async (req, res) => {
   try {
+    console.log("HELLO")
     const users = await userService.getAllUsers();
+    console.log(users)
     res.status(200).json(users);
   } catch (err) {
+    console.log(err)
     res.status(500).json({ error: err.message });
   }
 });
@@ -51,7 +54,7 @@ router.get(
  
   async (req, res) => {
     try {
-      console.log("HELLO")
+    
       const user = await userService.getUserByUserID(req.params.userID);
       if (!user) return res.status(404).json({ error: "User not found" });
       res.status(200).json(user);

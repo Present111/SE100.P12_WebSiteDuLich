@@ -106,7 +106,7 @@ const router = express.Router();
 router.post("/", async (req, res) => {
   try {
     const { userID, serviceID, quantity, totalAmount, roomID, checkInDate, checkOutDate ,pictures,invoiceID} = req.body;
-    console.log("HELELLO")
+  
     // Tạo invoice mới
     const newInvoice = new Invoice({
       invoiceID,
@@ -129,7 +129,7 @@ router.post("/", async (req, res) => {
     // Trả về hóa đơn mới tạo
     res.status(201).json(newInvoice);
   } catch (err) {
-    console.log("LOI",err)
+   
     res.status(500).json({ error: err.message });
   }
 });
@@ -142,6 +142,30 @@ router.get("/user/:userID", async (req, res) => {
 
     // Tìm tất cả hóa đơn theo userID và populate cả serviceID và roomID
     const invoices = await Invoice.find({ userID })
+      .populate('serviceID')  // Populate serviceID
+      .populate('roomID');    // Populate roomID
+
+    if (!invoices || invoices.length === 0) {
+      return res.status(404).json({ message: "Không tìm thấy hóa đơn nào cho userID này" });
+    }
+
+    // Trả về danh sách hóa đơn với thông tin serviceID và roomID đã được populate
+    res.status(200).json(invoices);
+  } catch (err) {
+    console.error("Lỗi khi lấy hóa đơn:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+
+// API lấy hóa đơn theo userID
+router.get("/provider/:userID", async (req, res) => {
+  try {
+    const { userID } = req.params;
+
+    // Tìm tất cả hóa đơn theo userID và populate cả serviceID và roomID
+    const invoices = await Invoice.find({ providerID })
       .populate('serviceID')  // Populate serviceID
       .populate('roomID');    // Populate roomID
 
@@ -181,15 +205,7 @@ router.get("/user/:userID", async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.get("/:id", async (req, res) => {
-  try {
-    const invoice = await invoiceService.getInvoiceById(req.params.id);
-    if (!invoice) return res.status(404).json({ error: "Invoice not found" });
-    res.status(200).json(invoice);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+
 
 // UPDATE - Cập nhật Invoice
 /**
@@ -263,6 +279,7 @@ router.put("/:id", async (req, res) => {
  *         description: Server error
  */
 router.delete("/:id", async (req, res) => {
+
   try {
     await invoiceService.deleteInvoiceById(req.params.id);
     res.status(200).json({ message: "Invoice deleted successfully" });
@@ -272,12 +289,18 @@ router.delete("/:id", async (req, res) => {
 });
 // API lấy tất cả đơn hàng
 router.get("/orders", async (req, res) => {
+  console.log("HELLO")
   try {
     // Tìm tất cả các đơn hàng và populate các trường liên quan
-    const orders = await Order.find()
-      .populate('userID')     // Populate thông tin người dùng
-      .populate('serviceID')  // Populate thông tin dịch vụ
-      .populate('roomID');    // Populate thông tin phòng (nếu có)
+    const orders = await Invoice.find()
+  .populate('userID')     // Populate thông tin người dùng
+  .populate({
+    path: 'serviceID',    // Populate thông tin dịch vụ
+    populate: {
+      path: 'providerID', // Populate thông tin nhà cung cấp trong serviceID
+    },
+  })
+  .populate('roomID');    // Populate thông tin phòng (nếu có)
 
     if (!orders || orders.length === 0) {
       return res.status(404).json({ message: "Không tìm thấy đơn hàng nào" });

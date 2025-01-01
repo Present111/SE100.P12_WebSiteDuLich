@@ -5,7 +5,7 @@ const cors = require("cors");
 const userRoutes = require("./routes/userRoutes");
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./swagger/swaggerConfig");
-const authRoutes = require("./routes/authRoutes");
+const auth = require("./routes/auth");
 const adminRoutes = require("./routes/adminRoutes");
 const providerRoutes = require("./routes/providerRoutes");
 const customerRoutes = require("./routes/customerRoutes");
@@ -72,6 +72,6 @@ app.use("/api/upload", uploadRoutes); // Thêm route upload
 // Swagger Documentation
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 //Auth
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", auth);
 // Cung cấp file ảnh từ thư mục "uploads"
 //app.use("/uploads", express.static(path.join(__dirname, "uploads")));
