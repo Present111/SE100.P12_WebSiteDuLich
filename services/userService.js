@@ -67,7 +67,9 @@ const getUserByUserID = async (userID) => {
     // if (!provider) {
     //   throw new Error("Provider không tồn tại với user._id này");
     // }
+    
 
+    if(provider){
     // Lấy các Service của Provider và populate locationID
     const services = await Service.find({ providerID: provider._id })
       .populate("providerID") // Lấy thông tin chi tiết của Provider nếu cần
@@ -99,6 +101,8 @@ const getUserByUserID = async (userID) => {
     const newUser = { ...user._doc, services: updatedServices };
     console.log("PROVIDER", newUser);
     return newUser;
+  }
+  else return user;
   } catch (error) {
     console.log(error);
     throw new Error(`Lỗi khi lấy User và Dịch vụ: ${error.message}`);

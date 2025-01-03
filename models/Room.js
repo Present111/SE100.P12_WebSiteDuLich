@@ -38,17 +38,17 @@ const roomSchema = new mongoose.Schema({
     adults: {
       type: Number,
       required: true,
-      min: 1,
+     
     }, // Số người lớn
     children: {
       type: Number,
       required: true,
-      min: 0,
+      
     }, // Số trẻ em
     roomNumber: {
       type: Number,
       required: true,
-      min: 0,
+     
     }, //
   },
   facilities: [

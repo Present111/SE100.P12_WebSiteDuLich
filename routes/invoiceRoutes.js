@@ -2,6 +2,7 @@ const express = require("express");
 const { body, validationResult } = require("express-validator");
 const invoiceService = require("../services/invoiceService");
 const Invoice = require("../models/Invoice");
+const Hotel = require("../models/Hotel");
 const router = express.Router();
 
 /**
@@ -139,12 +140,12 @@ router.post("/", async (req, res) => {
 router.get("/user/:userID", async (req, res) => {
   try {
     const { userID } = req.params;
-
+    console.log(userID)
     // Tìm tất cả hóa đơn theo userID và populate cả serviceID và roomID
     const invoices = await Invoice.find({ userID })
       .populate('serviceID')  // Populate serviceID
       .populate('roomID');    // Populate roomID
-
+      //console.log("HELLO",userID)
     if (!invoices || invoices.length === 0) {
       return res.status(404).json({ message: "Không tìm thấy hóa đơn nào cho userID này" });
     }
@@ -152,7 +153,7 @@ router.get("/user/:userID", async (req, res) => {
     // Trả về danh sách hóa đơn với thông tin serviceID và roomID đã được populate
     res.status(200).json(invoices);
   } catch (err) {
-    console.error("Lỗi khi lấy hóa đơn:", err);
+    console.log("Lỗi khi lấy hóa đơn:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -173,10 +174,20 @@ router.get("/provider/:userID", async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy hóa đơn nào cho userID này" });
     }
 
+    for (let invoice of invoices) {
+      if (invoice.serviceID) {
+        const hotel = await Hotel.findOne({ serviceID: invoice.serviceID._id })
+          .populate('serviceID')  // Populate thông tin serviceID trong khách sạn
+          .populate('hotelTypeID');  // Populate loại hình khách sạn
+
+        // Thêm thông tin khách sạn vào hóa đơn
+        invoice.hotel = hotel;
+      }
+    }
     // Trả về danh sách hóa đơn với thông tin serviceID và roomID đã được populate
     res.status(200).json(invoices);
   } catch (err) {
-    console.error("Lỗi khi lấy hóa đơn:", err);
+    console.log("Lỗi khi lấy hóa đơn:", err);
     res.status(500).json({ error: err.message });
   }
 });
