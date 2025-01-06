@@ -143,8 +143,14 @@ router.get("/user/:userID", async (req, res) => {
     console.log(userID)
     // Tìm tất cả hóa đơn theo userID và populate cả serviceID và roomID
     const invoices = await Invoice.find({ userID })
-      .populate('serviceID')  // Populate serviceID
-      .populate('roomID');    // Populate roomID
+    .populate({
+      path: 'serviceID', // Populate serviceID
+      populate: {
+        path: 'locationID' // Populate locationID trong serviceID
+      }
+    })    // Populate serviceID
+      .populate('roomID')    // Populate roomID
+      .populate('review')
       //console.log("HELLO",userID)
     if (!invoices || invoices.length === 0) {
       return res.status(404).json({ message: "Không tìm thấy hóa đơn nào cho userID này" });
@@ -167,7 +173,12 @@ router.get("/provider/:userID", async (req, res) => {
 
     // Tìm tất cả hóa đơn theo userID và populate cả serviceID và roomID
     const invoices = await Invoice.find({ providerID })
-      .populate('serviceID')  // Populate serviceID
+      .populate({
+        path: 'serviceID', // Populate serviceID
+        populate: {
+          path: 'locationID' // Populate locationID trong serviceID
+        }
+      })  // Populate serviceID
       .populate('roomID');    // Populate roomID
 
     if (!invoices || invoices.length === 0) {
@@ -178,7 +189,7 @@ router.get("/provider/:userID", async (req, res) => {
       if (invoice.serviceID) {
         const hotel = await Hotel.findOne({ serviceID: invoice.serviceID._id })
           .populate('serviceID')  // Populate thông tin serviceID trong khách sạn
-          .populate('hotelTypeID');  // Populate loại hình khách sạn
+          .populate('hotelTypeID').populate('review');  // Populate loại hình khách sạn
 
         // Thêm thông tin khách sạn vào hóa đơn
         invoice.hotel = hotel;
@@ -251,21 +262,54 @@ router.get("/provider/:userID", async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.put("/:id", async (req, res) => {
+// router.put("/:id", async (req, res) => {
+//   try {
+//     const updatedInvoice = await invoiceService.updateInvoiceById(
+//       req.params.id,
+//       req.body
+//     );
+//     if (!updatedInvoice)
+//       return res.status(404).json({ error: "Invoice not found" });
+//     res
+//       .status(200)
+//       .json({ message: "Invoice updated successfully", data: updatedInvoice });
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// });
+
+
+router.put("/invoices/:invoiceID/status", async (req, res) => {
+  console.log('HELLO')
+  
+  const { invoiceID } = req.params;
+  const { status } = req.body;
+
+  const validStatuses = ["chờ xác nhận", "đã xác nhận", "đã hủy", "đã sử dụng"];
+
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json({ error: "Invalid status value" });
+  }
+
   try {
-    const updatedInvoice = await invoiceService.updateInvoiceById(
-      req.params.id,
-      req.body
+    const updatedInvoice = await Invoice.findOneAndUpdate(
+      { _id: invoiceID },
+      { status },
+      { new: true, runValidators: true }
     );
-    if (!updatedInvoice)
+
+    if (!updatedInvoice) {
+      console.log("@")
       return res.status(404).json({ error: "Invoice not found" });
-    res
-      .status(200)
-      .json({ message: "Invoice updated successfully", data: updatedInvoice });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    }
+
+    res.status(200).json({ message: "Status updated successfully", updatedInvoice });
+  } catch (error) {
+    console.log(error)
+    res.status(500).json({ error: "An error occurred while updating status", details: error.message });
   }
 });
+
 
 // DELETE - Xóa Invoice
 /**

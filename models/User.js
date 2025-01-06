@@ -6,7 +6,7 @@ const userSchema = new mongoose.Schema({
   fullName: { type: String, required: true }, // Họ và Tên
   phoneNumber: { type: String, required: true }, // Số điện thoại
   email: { type: String, required: true, unique: true }, // Email
-  userName: { type: String, required: true, unique: true }, // Tên đăng nhập
+  userName: { type: String, required: true }, // Tên đăng nhập
   birthDate: { type: Date, required: true }, // Ngày sinh
   password: { type: String, required: true }, // Mật khẩu
   role: {
@@ -16,6 +16,17 @@ const userSchema = new mongoose.Schema({
     required: true,
   }, // Vai trò
   active: { type: Boolean, default: true }, // Trạng thái
+
+  // Mảng loveList liên kết tới Service
+  loveList: {
+    type: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Service", // Tham chiếu tới Service
+      },
+    ],
+    default: [], // Giá trị mặc định là mảng rỗng
+  },
 });
 
 module.exports = mongoose.model("User", userSchema);

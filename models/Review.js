@@ -12,11 +12,7 @@ const reviewSchema = new mongoose.Schema({
     refPath: "targetModel",
     required: true,
   }, // ID Room hoặc Table
-  targetModel: {
-    type: String,
-    required: true,
-    enum: ["Room", "Table"], // Xác định đánh giá thuộc Room hoặc Table
-  },
+  
 });
 
 module.exports = mongoose.model("Review", reviewSchema);

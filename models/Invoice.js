@@ -45,7 +45,7 @@ const invoiceSchema = new mongoose.Schema({
   }, // Ngày trả phòng
   status: {
     type: String,
-    enum: ["chờ xác nhận", "đã xác nhận", "đã hủy"],
+    enum: ["chờ xác nhận", "đã xác nhận", "đã hủy","đã sử dụng"],
     default: "chờ xác nhận",
   }, // Trạng thái của hóa đơn
   pictures: [
@@ -53,6 +53,11 @@ const invoiceSchema = new mongoose.Schema({
       type: String, // URL của ảnh dưới dạng chuỗi
     },
   ], // Mảng chứa các URL ảnh
+  
+  review: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: "Review" 
+  }, // Tham chiếu đến đánh giá của hóa đơn
 });
 
 module.exports = mongoose.model("Invoice", invoiceSchema);

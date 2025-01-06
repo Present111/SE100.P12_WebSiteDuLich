@@ -82,6 +82,12 @@ const deleteHotelById = async (id, user) => {
   return true;
 };
 
+
+
+
+
+
+
 const getHotelById1 = async (id) => {
   try {
     // Truy vấn khách sạn và populate thông tin chi tiết
@@ -116,6 +122,10 @@ const getHotelById1 = async (id) => {
           {
             path: "reviews", // Populate đánh giá
             model: "Review",
+            populate: {
+              path: "userID", // Populate userID within reviews to get user details
+              model: "User", // Specify User model to get full user data
+            },
           },
         ],
       })

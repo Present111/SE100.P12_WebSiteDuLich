@@ -7,6 +7,8 @@ const serviceService = require("../services/serviceService");
 const Service = require("../models/Service");
 const Location = require("../models/Location");
 const Hotel = require("../models/Hotel");
+const Review = require("../models/Review");
+const Invoice = require("../models/Invoice");
 const router = express.Router();
 
 /**
@@ -20,8 +22,23 @@ const router = express.Router();
 
 
 
+router.get("/:serviceID/hotel", async (req, res) => {
+  try {
+    const { serviceID } = req.params;
 
-module.exports = router;
+    // Tìm Hotel dựa trên serviceID
+    const hotel = await Hotel.findOne({ serviceID });
+
+    if (!hotel) {
+      return res.status(404).json({ error: "Hotel not found" });
+    }
+
+    res.status(200).json({ hotelID: hotel._id });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 /**
  * @swagger
@@ -240,6 +257,7 @@ router.get(
  */
 router.get("/:id", authMiddleware, async (req, res) => {
   try {
+    console.log("HELLO")
     const service = await serviceService.getServiceById(req.params.id);
     if (!service) return res.status(404).json({ error: "Service not found" });
     res.status(200).json(service);
@@ -426,5 +444,58 @@ router.post("/", async (req, res) => {
   }
 });
 
+
+
+
+router.post("/services/:id/reviews", async (req, res) => {
+  const { id: serviceId } = req.params;
+  const { userID, positiveComment, stars, targetID, invoiceID } = req.body;
+
+  if (!serviceId || !userID || !stars || !targetID || !invoiceID) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  try {
+    // Kiểm tra Service tồn tại
+    const service = await Service.findById(serviceId);
+    if (!service) {
+      return res.status(404).json({ error: "Service not found" });
+    }
+
+    // Kiểm tra Invoice tồn tại
+    const invoice = await Invoice.findById(invoiceID);
+    if (!invoice) {
+      return res.status(404).json({ error: "Invoice not found" });
+    }
+
+    // Tạo mới review
+    const review = new Review({
+      reviewID: Date.now().toString(36) + Math.random().toString(36).substring(2),
+      userID,
+      positiveComment,
+      stars,
+      targetID,
+    });
+
+    // Lưu review vào database
+    const savedReview = await review.save();
+
+    // Thêm review vào mảng reviews của Service
+    service.reviews.push(savedReview._id);
+    await service.save();
+
+    // Cập nhật review vào hóa đơn
+    invoice.review = savedReview._id;
+    await invoice.save();
+
+    return res.status(201).json({
+      message: "Review added successfully and linked to invoice",
+      review: savedReview,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 module.exports = router;

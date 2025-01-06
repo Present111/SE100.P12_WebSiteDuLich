@@ -111,11 +111,16 @@ const getServiceById = async (id) => {
     .populate("facilities", "facilityTypeID name")
     .populate("priceCategories", "priceCategoryID cheap midRange luxury")
     .populate("suitability", "suitabilityID name")
-    .populate(
-      "reviews",
-      "reviewID userID positiveComment negativeComment stars date"
-    );
+    .populate({
+      path: "reviews",
+      
+      populate: {
+        path: "userID", // Populate user details in reviews
+        // Omitting 'select' will include all fields from the User model
+      }
+    });
 };
+
 
 /**
  * Xóa một Service theo ID

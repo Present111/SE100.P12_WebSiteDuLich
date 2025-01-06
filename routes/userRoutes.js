@@ -4,7 +4,8 @@ const authMiddleware = require("../middlewares/authMiddleware");
 const roleMiddleware = require("../middlewares/roleMiddleware");
 const userService = require("../services/userService");
 const router = express.Router();
-
+const nodemailer = require('nodemailer');
+const User = require("../models/User");
 router.post(
   "/",
   authMiddleware,
@@ -64,6 +65,74 @@ router.get(
   }
 );
 
+
+router.put("/userID/:userID/loveList", async (req, res) => {
+  const { userID } = req.params;
+  const { loveList } = req.body; // nhận loveList từ client
+  
+  console.log(loveList);
+
+  try {
+   let user = await User.findOne({ userID }).exec()
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+  // console.log(user)
+
+    // Cập nhật loveList của user
+    user.loveList = loveList;
+    console.log(user.loveList);
+
+  
+    // Lưu thay đổi vào cơ sở dữ liệu
+    await user.save();
+
+    // Populating loveList để lấy thông tin chi tiết các sản phẩm (nếu là tham chiếu đến các tài liệu khác)
+    await user.populate({
+      path: "loveList",
+      populate: {
+        path: "locationID", // Tham chiếu từ Service tới Location
+        model: "Location", // Model của Location
+      },
+    });  // Không cần execPopulate nữa
+    console.log(user);
+    // Trả về kết quả
+    res.status(200).json({ message: "LoveList updated", loveList: user.loveList });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+
+// Lấy toàn bộ loveList của một user
+router.get("/userID/:userID/loveList", async (req, res) => {
+  const { userID } = req.params;
+
+  try {
+   let user = await User.findOne({ userID }).exec()
+   
+    //?.populate("loveList"); // Lấy chi tiết các service trong loveList
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    await user.populate({
+      path: "loveList",
+      populate: {
+        path: "locationID", // Tham chiếu từ Service tới Location
+        model: "Location", // Model của Location
+      },
+    });  // Không cần exe
+   
+    res.status(200).json(user.loveList);
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get(
   "/:id",
  
@@ -83,6 +152,7 @@ router.put(
  
   async (req, res) => {
     try {
+      console.log("LOHEE")
       const { role } = req.body;
 
       if (role && !["Admin", "Provider", "Customer"].includes(role)) {
@@ -100,6 +170,7 @@ router.put(
         .status(200)
         .json({ message: "User updated successfully", data: updatedUser });
     } catch (err) {
+      console.log(err)
       res.status(500).json({ error: err.message });
     }
   }
@@ -120,5 +191,245 @@ router.delete(
     }
   }
 );
+
+
+const verificationCodes = new Map();
+
+// Cấu hình gửi email
+const transporter = nodemailer.createTransport({
+  service: "Gmail", // Hoặc dịch vụ khác
+  auth: {
+    user: "managingagents.se@gmail.com",
+    pass: "gtwdyjnrsuimdojf",
+  },
+});
+
+// POST /api/users/register
+router.post("/register", async (req, res) => {
+  const { id,username, password, email, phoneNumber, address, gender } = req.body;
+  console.log("HELLO")
+  console.log(req.body)
+  try {
+    // Kiểm tra xem email đã tồn tại chưa
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      console.log("HELLO")
+      return res.status(400).json({ message: "Email đã tồn tại." });
+    }
+
+    // Tạo mã xác thực và lưu vào bộ nhớ
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    verificationCodes.set(email, { verificationCode, userData: {id, username, password, email, phoneNumber, address, gender } });
+
+    // Gửi mã xác thực qua email
+    await transporter.sendMail({
+      from: "your-email@gmail.com",
+      to: email,
+      subject: "Xác nhận tài khoản",
+      text: `Mã xác thực của bạn là: ${verificationCode}`,
+    });
+console.log(req.body)
+    res.status(200).json({ message: "Vui lòng kiểm tra email để xác thực tài khoản." });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Lỗi khi gửi mã xác thực." });
+  }
+});
+
+router.post("/addStaff", async (req, res) => {
+  const { id, email, username, password, role, phone} = req.body;
+
+  try {
+    // Kiểm tra xem username đã tồn tại chưa
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "Đã tồn tại email" });
+    }
+    console.log("HELLO")
+   
+
+    // Tạo người dùng mới
+    const newUser = new User({
+      id,
+      username,
+      password,
+      role,
+      email,
+      phone,
+      address: "",
+      gender: "Male",
+      dateOfBirth: new Date(0),
+      isActive: true,
+    });
+
+    await newUser.save();
+
+    res.status(201).json({ message: "Nhân viên mới đã được thêm thành công.", user: newUser });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Lỗi khi thêm nhân viên mới." });
+  }
+});
+
+
+
+// POST /api/users/verify
+router.post("/verify", async (req, res) => {
+  const { email, verificationCode } = req.body;
+  
+  console.log(req.body)
+  try {
+    // Kiểm tra mã xác thực trong bộ nhớ tạm
+    const storedData = verificationCodes.get(email);
+    console.log(storedData)
+    if (!storedData || storedData.verificationCode !== verificationCode) {
+      return res.status(400).json({ message: "Mã xác thực không hợp lệ hoặc đã hết hạn." });
+    }
+
+    // Tạo người dùng mới từ dữ liệu lưu trữ
+    const {id, username, password, phone} = storedData.userData;
+
+    const newUser = new User({
+      userID: id,
+      fullName: username,
+      userName: username,
+      password,
+      email,
+      phoneNumber: (phone ? phone: "0"),
+     
+    
+      birthDate: new Date(0),
+      active: true, // Kích hoạt tài khoản ngay sau khi xác thực
+    });
+
+    await newUser.save();
+
+    // Xóa mã xác thực sau khi sử dụng
+    //verificationCodes.delete(email);
+
+    res.status(201).json({ message: "Tài khoản đã được xác thực và tạo thành công!" });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Lỗi khi xác thực tài khoản." });
+  }
+});
+
+
+
+// POST /api/users/resend-code
+router.post("/resend-code", async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    // Kiểm tra người dùng tồn tại và chưa kích hoạt
+    const user = await User.findOne({ email });
+    if (!user || user.isActive) {
+      return res.status(400).json({ message: "Email không tồn tại hoặc tài khoản đã được kích hoạt." });
+    }
+
+    // Kiểm tra mã xác thực còn lưu trong bộ nhớ tạm
+    const existingCode = verificationCodes.get(email);
+    if (existingCode) {
+      // Nếu mã xác thực vẫn còn, gửi lại mã
+      await transporter.sendMail({
+        from: "your-email@gmail.com",
+        to: email,
+        subject: "Mã xác thực mới của bạn",
+        text: `Mã xác thực của bạn là: ${existingCode.verificationCode}`,
+      });
+
+      return res.status(200).json({ message: "Mã xác thực đã được gửi lại. Vui lòng kiểm tra email." });
+    }
+
+    // Tạo mã xác thực mới nếu không có mã xác thực trước đó
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Lưu mã xác thực mới vào bộ nhớ
+    verificationCodes.set(email, { verificationCode, userData: { email } });
+
+    // Gửi mã mới qua email
+    await transporter.sendMail({
+      from: "your-email@gmail.com",
+      to: email,
+      subject: "Mã xác thực mới của bạn",
+      text: `Mã xác thực của bạn là: ${verificationCode}`,
+    });
+
+    res.status(200).json({ message: "Mã xác thực mới đã được gửi. Vui lòng kiểm tra email." });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Lỗi khi gửi lại mã xác thực." });
+  }
+});
+
+// POST /api/users/forgot-password
+router.post("/forgot-password", async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    // Kiểm tra xem email có tồn tại không
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "Email không tồn tại trong hệ thống." });
+    }
+
+    // Tạo mã xác thực
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Lưu mã xác thực vào bộ nhớ tạm
+    verificationCodes.set(email, { resetCode, createdAt: Date.now() });
+
+    // Gửi mã xác thực qua email
+    await transporter.sendMail({
+      from: "your-email@gmail.com",
+      to: email,
+      subject: "Mã đặt lại mật khẩu",
+      text: `Mã đặt lại mật khẩu của bạn là: ${resetCode}. Mã có hiệu lực trong 10 phút.`,
+    });
+
+    res.status(200).json({ message: "Mã đặt lại mật khẩu đã được gửi qua email." });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Lỗi khi gửi mã đặt lại mật khẩu." });
+  }
+});
+
+// POST /api/users/reset-password
+router.post("/reset-password", async (req, res) => {
+  const { email, resetCode, newPassword } = req.body;
+
+  try {
+    // Kiểm tra mã xác thực trong bộ nhớ
+    const storedData = verificationCodes.get(email);
+    if (!storedData || storedData.resetCode !== resetCode) {
+      return res.status(400).json({ message: "Mã xác thực không hợp lệ hoặc đã hết hạn." });
+    }
+
+    // Kiểm tra thời gian hết hạn (10 phút)
+    const tenMinutes = 10 * 60 * 1000;
+    if (Date.now() - storedData.createdAt > tenMinutes) {
+      verificationCodes.delete(email);
+      return res.status(400).json({ message: "Mã xác thực đã hết hạn." });
+    }
+
+    // Cập nhật mật khẩu mới
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "Email không tồn tại trong hệ thống." });
+    }
+
+    user.password = newPassword; // Cần hash mật khẩu nếu cần
+    await user.save();
+
+    // Xóa mã xác thực sau khi sử dụng
+    verificationCodes.delete(email);
+
+    res.status(200).json({ message: "Mật khẩu đã được thay đổi thành công." });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Lỗi khi đặt lại mật khẩu." });
+  }
+});
+
 
 module.exports = router;
