@@ -53,11 +53,23 @@ const invoiceSchema = new mongoose.Schema({
       type: String, // URL của ảnh dưới dạng chuỗi
     },
   ], // Mảng chứa các URL ảnh
-  
   review: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: "Review" 
   }, // Tham chiếu đến đánh giá của hóa đơn
+  invoiceType: {
+    type: String,
+    enum: ["restaurant", "hotel"],
+    required: true,
+  }, // Loại hóa đơn
+  arrivalDate: {
+    type: Date,
+    required: true,
+  }, // Ngày đến
+  arrivalTime: {
+    type: String,
+    required: true, // Thời gian đến (hh:mm format)
+  },
 });
 
 module.exports = mongoose.model("Invoice", invoiceSchema);

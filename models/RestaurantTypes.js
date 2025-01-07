@@ -5,17 +5,7 @@ const restaurantTypeSchema = new mongoose.Schema({
     type: String,
     required: true,
     unique: true,
-    enum: [
-      "Restaurants",
-      "Quick Bites",
-      "Coffee & Tea",
-      "Dessert",
-      "Bakeries",
-      "Bars & Pubs",
-      "Delivery Only",
-      "Specialty Food Market",
-      "Dine With a Local Chef",
-    ], // Danh sách loại nhà hàng
+    
   },
 });
 

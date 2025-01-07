@@ -24,7 +24,7 @@ const facilitytypeRoutes = require("./routes/facilityTypeRoutes");
 const suitabilityRoutes = require("./routes/suitabilityRoutes");
 const path = require("path");
 const uploadRoutes = require("./routes/uploadRouter"); // Route cho upload ảnh
-
+const restaurantFilterRoutes = require("./routes/restaurantFilterRoutes");  // Thêm route filter mới
 // Load .env file
 dotenv.config();
 
@@ -51,6 +51,7 @@ app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
 // Routes
+app.use("/api/restaurants-filter", restaurantFilterRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/admins", adminRoutes);
 app.use("/api/providers", providerRoutes);
