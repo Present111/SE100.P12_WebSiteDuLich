@@ -144,6 +144,124 @@ router.get("/revenue", async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/invoices/revenue/yearly:
+ *   get:
+ *     summary: Tính doanh thu cho mỗi roomID theo userID và năm
+ *     tags: [Invoices]
+ *     parameters:
+ *       - name: userID
+ *         in: query
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID của người dùng
+ *       - name: year
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: Năm để lọc dữ liệu (mặc định là năm hiện tại nếu không nhập)
+ *     responses:
+ *       200:
+ *         description: Danh sách doanh thu của từng roomID trong năm
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       roomID:
+ *                         type: string
+ *                       revenue:
+ *                         type: number
+ *                         example: 15000
+ *       400:
+ *         description: Dữ liệu đầu vào không hợp lệ
+ *       500:
+ *         description: Lỗi server
+ */
+
+router.get("/revenue/yearly", async (req, res) => {
+  try {
+    const { userID, year } = req.query;
+
+    // Kiểm tra dữ liệu đầu vào
+    if (!userID || !mongoose.Types.ObjectId.isValid(userID)) {
+      return res.status(400).json({ error: "Invalid or missing userID" });
+    }
+
+    // Chuyển userID thành ObjectId
+    const userObjectId = new mongoose.Types.ObjectId(userID);
+
+    // Sử dụng năm hiện tại nếu không nhập
+    const currentYear = new Date().getFullYear();
+    const selectedYear = year || currentYear;
+
+    // Xác định khoảng thời gian của năm được chọn
+    const start = new Date(selectedYear, 0, 1); // Ngày đầu năm
+    const end = new Date(selectedYear, 11, 31, 23, 59, 59); // Ngày cuối năm
+
+    // Lấy danh sách roomID từ API `/by-user`
+    const rooms = await Room.find().populate({
+      path: "hotelID",
+      populate: {
+        path: "serviceID",
+        populate: {
+          path: "providerID",
+          match: { userID: userObjectId },
+        },
+      },
+    });
+
+    const roomIDs = rooms
+      .filter((room) => room.hotelID?.serviceID?.providerID)
+      .map((room) => room._id); // Trả về ObjectId
+
+    // --- Tính toán doanh thu ---
+    const invoices = await Invoice.find({
+      roomID: { $in: roomIDs }, // Chỉ xét roomID có trong danh sách
+      issueDate: { $gte: start, $lte: end }, // Lọc theo năm
+      paymentStatus: "paid", // Chỉ tính hóa đơn đã thanh toán
+    });
+
+    // Tính doanh thu theo từng roomID
+    const revenueMap = {};
+
+    // Khởi tạo doanh thu bằng 0 cho tất cả roomID
+    roomIDs.forEach((id) => {
+      revenueMap[id.toString()] = 0;
+    });
+
+    invoices.forEach((invoice) => {
+      const roomID = invoice.roomID.toString();
+      const amount = invoice.totalAmount || 0;
+
+      if (!revenueMap[roomID]) {
+        revenueMap[roomID] = 0;
+      }
+      revenueMap[roomID] += amount; // Cộng dồn revenue
+    });
+
+    // Chuyển kết quả sang mảng để trả về
+    const result = Object.keys(revenueMap).map((roomID) => ({
+      roomID,
+      revenue: revenueMap[roomID],
+    }));
+
+    // Trả về kết quả
+    res.status(200).json({ data: result });
+  } catch (err) {
+    console.error("Lỗi khi tính doanh thu:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // CREATE - Tạo mới Invoice
 /**
  * @swagger
