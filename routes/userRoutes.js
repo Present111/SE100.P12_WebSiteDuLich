@@ -101,10 +101,9 @@ router.get("/", async (req, res) => {
  */
 router.get("/filter", async (req, res) => {
   try {
-    // Lấy query từ request
     const { year, month, role } = req.query;
 
-    // Kiểm tra đầu vào
+    // Kiểm tra tham số đầu vào
     if (!year || isNaN(year)) {
       return res
         .status(400)
@@ -119,30 +118,32 @@ router.get("/filter", async (req, res) => {
       return res.status(400).json({ error: "Invalid role value" });
     }
 
-    // Tạo phạm vi thời gian
+    // Tính khoảng thời gian theo tháng hoặc năm
     let start, end;
     if (month) {
-      start = new Date(year, month - 1, 1); // Ngày đầu tiên của tháng
-      end = new Date(year, month, 0, 23, 59, 59); // Ngày cuối cùng của tháng
+      start = new Date(year, month - 1, 1); // Ngày đầu tháng
+      end = new Date(year, month, 0, 23, 59, 59); // Ngày cuối tháng
     } else {
-      start = new Date(year, 0, 1); // Ngày đầu tiên của năm
-      end = new Date(year, 11, 31, 23, 59, 59); // Ngày cuối cùng của năm
+      start = new Date(year, 0, 1); // Ngày đầu năm
+      end = new Date(year, 11, 31, 23, 59, 59); // Ngày cuối năm
     }
 
-    // Tạo điều kiện truy vấn
+    // Tạo query
     const query = { createdAt: { $gte: start, $lte: end } };
-
     if (role) {
-      query.role = role; // Lọc theo role
+      query.role = role;
     }
 
-    // Truy vấn cơ sở dữ liệu
-    const users = await User.find(query);
+    // Đếm số lượng user khớp với query
+    const count = await User.countDocuments(query);
 
-    // Trả về kết quả
-    res
-      .status(200)
-      .json({ year, month: month || "All", role: role || "All", data: users });
+    // Trả về số lượng
+    res.status(200).json({
+      year,
+      month: month || "All",
+      role: role || "All",
+      count, // Tổng số lượng người dùng
+    });
   } catch (err) {
     console.log(err);
     res.status(500).json({ error: err.message });
