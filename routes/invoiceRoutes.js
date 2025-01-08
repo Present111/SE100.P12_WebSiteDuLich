@@ -1,9 +1,14 @@
 const express = require("express");
 const { body, validationResult } = require("express-validator");
 const invoiceService = require("../services/invoiceService");
-const Invoice = require("../models/Invoice");
-const Hotel = require("../models/Hotel");
+
 const router = express.Router();
+const mongoose = require("mongoose");
+const Invoice = require("../models/Invoice"); // Import model Invoice
+const Room = require("../models/Room"); // Import model Room
+const Hotel = require("../models/Hotel"); // Import model Hotel
+const Service = require("../models/Service"); // Import model Service
+const Provider = require("../models/Provider"); // Import model Provider
 
 /**
  * @swagger
@@ -11,6 +16,133 @@ const router = express.Router();
  *   name: Invoices
  *   description: API quản lý hóa đơn
  */
+
+/**
+ * @swagger
+ * /api/invoices/revenue:
+ *   get:
+ *     summary: Tính doanh thu cho mỗi roomID từ userID và tháng, năm
+ *     tags: [Invoices]
+ *     parameters:
+ *       - name: userID
+ *         in: query
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID của người dùng
+ *       - name: month
+ *         in: query
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 12
+ *         description: Tháng cần tính doanh thu (1 - 12)
+ *       - name: year
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: Năm để lọc dữ liệu (mặc định là năm hiện tại nếu không nhập)
+ *     responses:
+ *       200:
+ *         description: Danh sách doanh thu của từng roomID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       roomID:
+ *                         type: string
+ *                       revenue:
+ *                         type: number
+ *                         example: 5000
+ *       400:
+ *         description: Dữ liệu đầu vào không hợp lệ
+ *       500:
+ *         description: Lỗi server
+ */
+
+router.get("/revenue", async (req, res) => {
+  try {
+    const { userID, month, year } = req.query;
+
+    // Kiểm tra dữ liệu đầu vào
+    if (!userID) {
+      return res.status(400).json({ error: "userID is required" });
+    }
+    if (!month || isNaN(month) || month < 1 || month > 12) {
+      return res.status(400).json({ error: "Month must be between 1 and 12" });
+    }
+
+    // Sử dụng năm hiện tại nếu không nhập
+    const currentYear = new Date().getFullYear();
+    const selectedYear = year || currentYear;
+
+    // Xác định khoảng thời gian của tháng và năm
+    const start = new Date(selectedYear, month - 1, 1);
+    const end = new Date(selectedYear, month, 0, 23, 59, 59);
+
+    // --- Lấy danh sách roomID từ API /by-user ---
+    const rooms = await Room.find().populate({
+      path: "hotelID",
+      populate: {
+        path: "serviceID",
+        populate: {
+          path: "providerID",
+          match: { userID: new mongoose.Types.ObjectId(userID) },
+        },
+      },
+    });
+
+    // Lọc roomID thỏa mãn điều kiện
+    const roomIDs = rooms
+      .filter((room) => room.hotelID?.serviceID?.providerID)
+      .map((room) => room._id); // Trả về ObjectId
+
+    // --- Tính toán doanh thu ---
+    const invoices = await Invoice.find({
+      roomID: { $in: roomIDs }, // Chỉ xét roomID có trong danh sách
+      issueDate: { $gte: start, $lte: end }, // Lọc theo tháng và năm
+      paymentStatus: "paid", // Chỉ tính hóa đơn đã thanh toán
+    });
+
+    // Tính doanh thu theo từng roomID
+    const revenueMap = {};
+
+    // Khởi tạo doanh thu bằng 0 cho tất cả roomID
+    roomIDs.forEach((id) => {
+      revenueMap[id.toString()] = 0;
+    });
+
+    invoices.forEach((invoice) => {
+      const roomID = invoice.roomID.toString();
+      const amount = invoice.totalAmount || 0;
+
+      if (!revenueMap[roomID]) {
+        revenueMap[roomID] = 0;
+      }
+      revenueMap[roomID] += amount; // Cộng dồn revenue
+    });
+
+    // Chuyển kết quả sang mảng để trả về
+    const result = Object.keys(revenueMap).map((roomID) => ({
+      roomID,
+      revenue: revenueMap[roomID],
+    }));
+
+    // Trả về kết quả
+    res.status(200).json({ data: result });
+  } catch (err) {
+    console.error("Lỗi khi tính doanh thu:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // CREATE - Tạo mới Invoice
 /**
@@ -374,99 +506,6 @@ router.get("/orders", async (req, res) => {
     res.status(200).json(orders);
   } catch (err) {
     console.error("Lỗi khi lấy danh sách đơn hàng:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * @swagger
- * /api/invoices/total-amount:
- *   get:
- *     summary: Tính tổng số tiền của các hóa đơn đã thanh toán theo từng tháng trong năm
- *     tags: [Invoices]
- *     parameters:
- *       - name: year
- *         in: query
- *         required: true
- *         schema:
- *           type: integer
- *         description: Năm để lọc (bắt buộc)
- *     responses:
- *       200:
- *         description: Tổng số tiền của các hóa đơn đã thanh toán theo từng tháng
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 year:
- *                   type: integer
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       month:
- *                         type: integer
- *                         example: 1
- *                       totalAmount:
- *                         type: number
- *                         example: 5000
- *       400:
- *         description: Dữ liệu đầu vào không hợp lệ
- *       500:
- *         description: Lỗi server
- */
-
-router.get("/total-amount", async (req, res) => {
-  try {
-    const { year } = req.query;
-
-    // Kiểm tra dữ liệu đầu vào
-    if (!year || isNaN(year)) {
-      return res
-        .status(400)
-        .json({ error: "Year is required and must be a number" });
-    }
-
-    // Mảng để lưu kết quả tổng tiền theo từng tháng
-    const monthlyTotals = [];
-
-    // Lặp qua từng tháng (1-12)
-    for (let month = 0; month < 12; month++) {
-      const start = new Date(year, month, 1); // Ngày đầu tháng
-      const end = new Date(year, month + 1, 0, 23, 59, 59); // Ngày cuối tháng
-
-      // Tính tổng số tiền của các hóa đơn đã thanh toán trong tháng
-      const result = await Invoice.aggregate([
-        {
-          $match: {
-            issueDate: { $gte: start, $lte: end },
-            paymentStatus: "paid", // Chỉ tính hóa đơn đã thanh toán
-          },
-        },
-        {
-          $group: {
-            _id: null,
-            totalAmount: { $sum: "$totalAmount" }, // Tính tổng tiền
-          },
-        },
-      ]);
-
-      // Thêm kết quả vào mảng
-      monthlyTotals.push({
-        month: month + 1,
-        totalAmount: result.length > 0 ? result[0].totalAmount : 0, // Nếu không có kết quả thì trả về 0
-      });
-    }
-
-    // Trả về kết quả
-    res.status(200).json({
-      year,
-      data: monthlyTotals, // Tổng số tiền theo từng tháng
-    });
-  } catch (err) {
-    console.error("Lỗi khi tính tổng số tiền:", err);
     res.status(500).json({ error: err.message });
   }
 });
