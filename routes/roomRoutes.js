@@ -4,8 +4,13 @@ const authMiddleware = require("../middlewares/authMiddleware");
 const roleMiddleware = require("../middlewares/roleMiddleware");
 const upload = require("../middlewares/uploadMiddleware");
 const roomService = require("../services/roomService");
-const Room = require("../models/Room");
 const router = express.Router();
+
+const Room = require("../models/Room");
+const Hotel = require("../models/Hotel");
+const Service = require("../models/Service");
+const Provider = require("../models/Provider");
+const mongoose = require("mongoose");
 
 /**
  * @swagger
@@ -13,6 +18,100 @@ const router = express.Router();
  *   name: Rooms
  *   description: API quản lý Rooms
  */
+
+/**
+ * @swagger
+ * /api/rooms/by-user:
+ *   get:
+ *     summary: Tìm danh sách roomID dựa trên userID
+ *     tags: [Rooms]
+ *     parameters:
+ *       - name: userID
+ *         in: query
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID của người dùng
+ *     responses:
+ *       200:
+ *         description: Danh sách các roomID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: string
+ *       400:
+ *         description: Dữ liệu đầu vào không hợp lệ
+ *       500:
+ *         description: Lỗi server
+ */
+router.get("/by-user", async (req, res) => {
+  try {
+    const { userID } = req.query;
+
+    // Kiểm tra userID hợp lệ
+    if (!mongoose.Types.ObjectId.isValid(userID)) {
+      return res.status(400).json({ error: "Invalid userID format" });
+    }
+
+    // Chuyển userID sang ObjectId
+    const userObjectId = new mongoose.Types.ObjectId(userID);
+
+    // Tìm provider theo userID
+    const providers = await Provider.find({ userID: userObjectId }).select(
+      "_id"
+    );
+
+    if (!providers.length) {
+      return res.status(404).json({ error: "Không tìm thấy provider nào" });
+    }
+
+    const providerIDs = providers.map((p) => p._id);
+
+    // Tìm service theo providerID
+    const services = await Service.find({
+      providerID: { $in: providerIDs },
+    }).select("_id");
+
+    if (!services.length) {
+      return res.status(404).json({ error: "Không tìm thấy service nào" });
+    }
+
+    const serviceIDs = services.map((s) => s._id);
+
+    // Tìm hotel theo serviceID
+    const hotels = await Hotel.find({ serviceID: { $in: serviceIDs } }).select(
+      "_id"
+    );
+
+    if (!hotels.length) {
+      return res.status(404).json({ error: "Không tìm thấy hotel nào" });
+    }
+
+    const hotelIDs = hotels.map((h) => h._id);
+
+    // Tìm room theo hotelID và trả về mảng roomID dưới dạng ObjectId
+    const rooms = await Room.find({ hotelID: { $in: hotelIDs } }).select("_id");
+
+    const roomIDs = rooms.map((r) => r._id);
+
+    // Trả về kết quả
+    res.status(200).json({ data: roomIDs });
+  } catch (err) {
+    console.error("Lỗi khi tìm room:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Route động phải đặt cuối cùng
+router.get("/:id", async (req, res) => {
+  const room = await Room.findById(req.params.id);
+  if (!room) {
+    return res.status(404).json({ error: "Room not found" });
+  }
+  res.json(room);
+});
 
 /**
  * @swagger
@@ -42,45 +141,41 @@ const router = express.Router();
  *       500:
  *         description: Lỗi server
  */
-router.post(
-  "/",
-  async (req, res) => {
-    try {
-      const { hotelID } = req.body;
+router.post("/", async (req, res) => {
+  try {
+    const { hotelID } = req.body;
 
-      if (!hotelID) {
-        return res.status(400).json({ error: "hotelID là bắt buộc." });
-      }
-
-      // Giá trị mặc định
-      const defaultRoomData = {
-        roomID: `room_${Date.now()}`, // Tạo ID duy nhất
-        hotelID,
-        roomType: "Standard",
-        price: 100,
-        discountPrice: 80,
-        pictures: [],
-        active: false,
-        capacity: {
-          adults: 0,
-          children: 0,
-          roomNumber: 0,
-        },
-        facilities: [],
-        roomsAvailable: [],
-      };
-
-      // Tạo phòng mới
-      const newRoom = await Room.create(defaultRoomData);
-
-      res.status(201).json(newRoom);
-    } catch (err) {
-      console.log(err)
-      res.status(500).json({ error: err.message });
+    if (!hotelID) {
+      return res.status(400).json({ error: "hotelID là bắt buộc." });
     }
-  }
-);
 
+    // Giá trị mặc định
+    const defaultRoomData = {
+      roomID: `room_${Date.now()}`, // Tạo ID duy nhất
+      hotelID,
+      roomType: "Standard",
+      price: 100,
+      discountPrice: 80,
+      pictures: [],
+      active: false,
+      capacity: {
+        adults: 0,
+        children: 0,
+        roomNumber: 0,
+      },
+      facilities: [],
+      roomsAvailable: [],
+    };
+
+    // Tạo phòng mới
+    const newRoom = await Room.create(defaultRoomData);
+
+    res.status(201).json(newRoom);
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // READ ALL - Lấy danh sách Rooms
 /**
@@ -146,7 +241,7 @@ router.get("/:id", authMiddleware, async (req, res) => {
 
 router.put("/:id", authMiddleware, async (req, res) => {
   try {
-    console.log(req.body)
+    console.log(req.body);
     // Cập nhật thông tin Room trực tiếp từ req.body
     const updatedRoom = await Room.findByIdAndUpdate(
       req.params.id,
@@ -158,7 +253,9 @@ router.put("/:id", authMiddleware, async (req, res) => {
       return res.status(404).json({ message: "Room not found" });
     }
 
-    res.status(200).json({ message: "Room updated successfully", data: updatedRoom });
+    res
+      .status(200)
+      .json({ message: "Room updated successfully", data: updatedRoom });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
