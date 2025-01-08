@@ -58,7 +58,6 @@ const router = express.Router();
  *         description: Server error
  */
 
-
 // CREATE - Tạo mới hóa đơn
 /**
  * @swagger
@@ -106,8 +105,18 @@ const router = express.Router();
  */
 router.post("/", async (req, res) => {
   try {
-    const { userID, serviceID, quantity, totalAmount, roomID, checkInDate, checkOutDate ,pictures,invoiceID} = req.body;
-  
+    const {
+      userID,
+      serviceID,
+      quantity,
+      totalAmount,
+      roomID,
+      checkInDate,
+      checkOutDate,
+      pictures,
+      invoiceID,
+    } = req.body;
+
     // Tạo invoice mới
     const newInvoice = new Invoice({
       invoiceID,
@@ -121,7 +130,7 @@ router.post("/", async (req, res) => {
       roomID,
       checkInDate,
       checkOutDate,
-      pictures
+      pictures,
     });
 
     // Lưu vào cơ sở dữ liệu
@@ -130,30 +139,30 @@ router.post("/", async (req, res) => {
     // Trả về hóa đơn mới tạo
     res.status(201).json(newInvoice);
   } catch (err) {
-   
     res.status(500).json({ error: err.message });
   }
 });
-
 
 // API lấy hóa đơn theo userID
 router.get("/user/:userID", async (req, res) => {
   try {
     const { userID } = req.params;
-    console.log(userID)
+    console.log(userID);
     // Tìm tất cả hóa đơn theo userID và populate cả serviceID và roomID
     const invoices = await Invoice.find({ userID })
-    .populate({
-      path: 'serviceID', // Populate serviceID
-      populate: {
-        path: 'locationID' // Populate locationID trong serviceID
-      }
-    })    // Populate serviceID
-      .populate('roomID')    // Populate roomID
-      .populate('review')
-      //console.log("HELLO",userID)
+      .populate({
+        path: "serviceID", // Populate serviceID
+        populate: {
+          path: "locationID", // Populate locationID trong serviceID
+        },
+      }) // Populate serviceID
+      .populate("roomID") // Populate roomID
+      .populate("review");
+    //console.log("HELLO",userID)
     if (!invoices || invoices.length === 0) {
-      return res.status(404).json({ message: "Không tìm thấy hóa đơn nào cho userID này" });
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy hóa đơn nào cho userID này" });
     }
 
     // Trả về danh sách hóa đơn với thông tin serviceID và roomID đã được populate
@@ -164,8 +173,6 @@ router.get("/user/:userID", async (req, res) => {
   }
 });
 
-
-
 // API lấy hóa đơn theo userID
 router.get("/provider/:userID", async (req, res) => {
   try {
@@ -174,22 +181,25 @@ router.get("/provider/:userID", async (req, res) => {
     // Tìm tất cả hóa đơn theo userID và populate cả serviceID và roomID
     const invoices = await Invoice.find({ providerID })
       .populate({
-        path: 'serviceID', // Populate serviceID
+        path: "serviceID", // Populate serviceID
         populate: {
-          path: 'locationID' // Populate locationID trong serviceID
-        }
-      })  // Populate serviceID
-      .populate('roomID');    // Populate roomID
+          path: "locationID", // Populate locationID trong serviceID
+        },
+      }) // Populate serviceID
+      .populate("roomID"); // Populate roomID
 
     if (!invoices || invoices.length === 0) {
-      return res.status(404).json({ message: "Không tìm thấy hóa đơn nào cho userID này" });
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy hóa đơn nào cho userID này" });
     }
 
     for (let invoice of invoices) {
       if (invoice.serviceID) {
         const hotel = await Hotel.findOne({ serviceID: invoice.serviceID._id })
-          .populate('serviceID')  // Populate thông tin serviceID trong khách sạn
-          .populate('hotelTypeID').populate('review');  // Populate loại hình khách sạn
+          .populate("serviceID") // Populate thông tin serviceID trong khách sạn
+          .populate("hotelTypeID")
+          .populate("review"); // Populate loại hình khách sạn
 
         // Thêm thông tin khách sạn vào hóa đơn
         invoice.hotel = hotel;
@@ -202,8 +212,6 @@ router.get("/provider/:userID", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-
 
 // READ ONE - Lấy chi tiết Invoice
 /**
@@ -227,7 +235,6 @@ router.get("/provider/:userID", async (req, res) => {
  *       500:
  *         description: Server error
  */
-
 
 // UPDATE - Cập nhật Invoice
 /**
@@ -278,10 +285,9 @@ router.get("/provider/:userID", async (req, res) => {
 //   }
 // });
 
-
 router.put("/invoices/:invoiceID/status", async (req, res) => {
-  console.log('HELLO')
-  
+  console.log("HELLO");
+
   const { invoiceID } = req.params;
   const { status } = req.body;
 
@@ -299,17 +305,23 @@ router.put("/invoices/:invoiceID/status", async (req, res) => {
     );
 
     if (!updatedInvoice) {
-      console.log("@")
+      console.log("@");
       return res.status(404).json({ error: "Invoice not found" });
     }
 
-    res.status(200).json({ message: "Status updated successfully", updatedInvoice });
+    res
+      .status(200)
+      .json({ message: "Status updated successfully", updatedInvoice });
   } catch (error) {
-    console.log(error)
-    res.status(500).json({ error: "An error occurred while updating status", details: error.message });
+    console.log(error);
+    res
+      .status(500)
+      .json({
+        error: "An error occurred while updating status",
+        details: error.message,
+      });
   }
 });
-
 
 // DELETE - Xóa Invoice
 /**
@@ -334,7 +346,6 @@ router.put("/invoices/:invoiceID/status", async (req, res) => {
  *         description: Server error
  */
 router.delete("/:id", async (req, res) => {
-
   try {
     await invoiceService.deleteInvoiceById(req.params.id);
     res.status(200).json({ message: "Invoice deleted successfully" });
@@ -344,18 +355,18 @@ router.delete("/:id", async (req, res) => {
 });
 // API lấy tất cả đơn hàng
 router.get("/orders", async (req, res) => {
-  console.log("HELLO")
+  console.log("HELLO");
   try {
     // Tìm tất cả các đơn hàng và populate các trường liên quan
     const orders = await Invoice.find()
-  .populate('userID')     // Populate thông tin người dùng
-  .populate({
-    path: 'serviceID',    // Populate thông tin dịch vụ
-    populate: {
-      path: 'providerID', // Populate thông tin nhà cung cấp trong serviceID
-    },
-  })
-  .populate('roomID');    // Populate thông tin phòng (nếu có)
+      .populate("userID") // Populate thông tin người dùng
+      .populate({
+        path: "serviceID", // Populate thông tin dịch vụ
+        populate: {
+          path: "providerID", // Populate thông tin nhà cung cấp trong serviceID
+        },
+      })
+      .populate("roomID"); // Populate thông tin phòng (nếu có)
 
     if (!orders || orders.length === 0) {
       return res.status(404).json({ message: "Không tìm thấy đơn hàng nào" });
@@ -365,6 +376,94 @@ router.get("/orders", async (req, res) => {
     res.status(200).json(orders);
   } catch (err) {
     console.error("Lỗi khi lấy danh sách đơn hàng:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/invoices/total-amount:
+ *   get:
+ *     summary: Tính tổng số tiền của các hóa đơn đã thanh toán (paymentStatus = "paid") theo năm và tháng
+ *     tags: [Invoices]
+ *     parameters:
+ *       - name: year
+ *         in: query
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Năm để lọc (bắt buộc)
+ *       - name: month
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 12
+ *         description: Tháng để lọc (tùy chọn, từ 1 đến 12)
+ *     responses:
+ *       200:
+ *         description: Tổng số tiền của các hóa đơn đã thanh toán
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 totalAmount:
+ *                   type: number
+ *                   example: 5000
+ *       400:
+ *         description: Dữ liệu đầu vào không hợp lệ
+ *       500:
+ *         description: Lỗi server
+ */
+router.get("/total-amount", async (req, res) => {
+  try {
+    const { year, month } = req.query;
+
+    // Kiểm tra dữ liệu đầu vào
+    if (!year || isNaN(year)) {
+      return res
+        .status(400)
+        .json({ error: "Year is required and must be a number" });
+    }
+    if (month && (isNaN(month) || month < 1 || month > 12)) {
+      return res.status(400).json({ error: "Month must be between 1 and 12" });
+    }
+
+    // Xác định khoảng thời gian lọc
+    let start, end;
+    if (month) {
+      const monthStr = month.toString().padStart(2, "0");
+      start = new Date(`${year}-${monthStr}-01T00:00:00.000Z`);
+      end = new Date(`${year}-${monthStr}-31T23:59:59.999Z`);
+    } else {
+      start = new Date(`${year}-01-01T00:00:00.000Z`);
+      end = new Date(`${year}-12-31T23:59:59.999Z`);
+    }
+
+    // Tính tổng số tiền của các hóa đơn đã thanh toán
+    const result = await Invoice.aggregate([
+      {
+        $match: {
+          issueDate: { $gte: start, $lte: end },
+          paymentStatus: "paid", // Lọc paymentStatus = "paid"
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalAmount: { $sum: "$totalAmount" }, // Tính tổng tiền
+        },
+      },
+    ]);
+
+    // Lấy kết quả tổng số tiền
+    const totalAmount = result.length > 0 ? result[0].totalAmount : 0;
+
+    res.status(200).json({ totalAmount });
+  } catch (err) {
+    console.error("Lỗi khi tính tổng số tiền:", err);
     res.status(500).json({ error: err.message });
   }
 });
