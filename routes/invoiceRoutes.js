@@ -106,7 +106,11 @@ const router = express.Router();
  */
 router.post("/", async (req, res) => {
   try {
-    const { userID, serviceID, quantity, totalAmount, roomID, checkInDate, checkOutDate ,pictures,invoiceID} = req.body;
+    const { userID, serviceID, quantity, totalAmount, roomID, checkInDate, checkOutDate ,pictures,invoiceID, invoiceType,
+      arrivalDate,
+      arrivalTime,
+      adults , 
+      children , } = req.body;
   
     // Tạo invoice mới
     const newInvoice = new Invoice({
@@ -121,7 +125,12 @@ router.post("/", async (req, res) => {
       roomID,
       checkInDate,
       checkOutDate,
-      pictures
+      pictures,
+      invoiceType,
+      arrivalDate,
+      arrivalTime,
+      adults , 
+      children , 
     });
 
     // Lưu vào cơ sở dữ liệu
@@ -130,7 +139,7 @@ router.post("/", async (req, res) => {
     // Trả về hóa đơn mới tạo
     res.status(201).json(newInvoice);
   } catch (err) {
-   
+   console.log(err)
     res.status(500).json({ error: err.message });
   }
 });

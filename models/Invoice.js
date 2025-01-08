@@ -33,7 +33,7 @@ const invoiceSchema = new mongoose.Schema({
   roomID: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: "Room", 
-    required: true 
+   
   }, // Tham chiếu đến phòng đã đặt
   checkInDate: {
     type: Date,
