@@ -27,6 +27,7 @@ const userSchema = new mongoose.Schema({
     ],
     default: [], // Giá trị mặc định là mảng rỗng
   },
+  createdAt: { type: Date, default: Date.now }, // Ngày tạo
 });
 
 module.exports = mongoose.model("User", userSchema);
