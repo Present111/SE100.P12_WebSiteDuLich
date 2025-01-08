@@ -1,5 +1,7 @@
+const Coffee = require("../models/Coffee");
 const Hotel = require("../models/Hotel");
 const Provider = require("../models/Provider");
+const Restaurant = require("../models/Restaurant");
 const Room = require("../models/Room");
 const Service = require("../models/Service");
 const User = require("../models/User");
@@ -115,6 +117,9 @@ const getUserByUserID = async (userID) => {
     const updatedServices = await Promise.all(services.map(async (service) => {
       // Lấy tất cả các khách sạn liên quan đến service
       const hotels = await Hotel.find({ serviceID: service._id }).exec();
+      const res = await Restaurant.find({ serviceID: service._id }).exec();
+      const coffee = await Coffee.find({ serviceID: service._id }).exec();
+
 
       // Lấy phòng cho mỗi khách sạn
       const updatedHotels = await Promise.all(hotels.map(async (hotel) => {
@@ -127,6 +132,8 @@ const getUserByUserID = async (userID) => {
       const updatedService = { 
         ...service._doc, 
         hotels: updatedHotels, 
+        restaurants: res,
+        coffees: coffee
       
       };
       return updatedService;
