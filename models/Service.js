@@ -29,7 +29,7 @@ const serviceSchema = new mongoose.Schema({
   }, // Giá khuyến mãi
   description: {
     type: String,
-  }, // Mô tả dịch vụ 
+  }, // Mô tả dịch vụ
   status: {
     type: String,
     enum: ["Active", "Inactive"], // Chỉ chấp nhận giá trị "Active" hoặc "Inactive"
@@ -70,6 +70,7 @@ const serviceSchema = new mongoose.Schema({
       required: true,
     },
   ],
+  createdAt: { type: Date, default: Date.now }, // Ngày tạo
 });
 
 module.exports = mongoose.model("Service", serviceSchema);

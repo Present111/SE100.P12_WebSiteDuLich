@@ -22,7 +22,83 @@ const router = express.Router();
 
 // CREATE - Tạo mới Service
 
+/**
+ * @swagger
+ * /api/services/count:
+ *   get:
+ *     summary: Đếm số lượng Services được tạo theo năm và tháng
+ *     tags: [Services]
+ *     parameters:
+ *       - name: year
+ *         in: query
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Năm để lọc (bắt buộc)
+ *       - name: month
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 12
+ *         description: Tháng để lọc (tùy chọn, từ 1 đến 12)
+ *     responses:
+ *       200:
+ *         description: Số lượng Services phù hợp với bộ lọc
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 count:
+ *                   type: integer
+ *       400:
+ *         description: Dữ liệu đầu vào không hợp lệ
+ *       500:
+ *         description: Lỗi server
+ */
+router.get("/count", async (req, res) => {
+  try {
+    // Nhận query từ request
+    const { year, month } = req.query;
 
+    // Kiểm tra đầu vào
+    if (!year || isNaN(year)) {
+      return res
+        .status(400)
+        .json({ error: "Year is required and must be a number" });
+    }
+    if (month && (isNaN(month) || month < 1 || month > 12)) {
+      return res.status(400).json({ error: "Month must be between 1 and 12" });
+    }
+
+    // Xác định khoảng thời gian lọc
+    let start, end;
+    if (month) {
+      start = new Date(
+        `${year}-${month.toString().padStart(2, "0")}-01T00:00:00.000Z`
+      );
+      end = new Date(
+        `${year}-${month.toString().padStart(2, "0")}-31T23:59:59.999Z`
+      );
+    } else {
+      start = new Date(`${year}-01-01T00:00:00.000Z`);
+      end = new Date(`${year}-12-31T23:59:59.999Z`);
+    }
+
+    // Đếm số lượng Service theo khoảng thời gian
+    const count = await Service.countDocuments({
+      createdAt: { $gte: start, $lte: end },
+    });
+
+    // Trả về kết quả
+    res.status(200).json({ count });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 router.get("/:serviceID/hotel", async (req, res) => {
   try {
@@ -247,10 +323,7 @@ router.get("/:id/details", async (req, res) => {
     }
 
     // Combine suitability and facilities into one array
-    const combinedData = [
-      ...service.suitability,
-      ...service.facilities,
-    ];
+    const combinedData = [...service.suitability, ...service.facilities];
 
     res.json({
       service: {
@@ -297,7 +370,7 @@ router.get("/:id/details", async (req, res) => {
  */
 router.get("/:id", authMiddleware, async (req, res) => {
   try {
-    console.log("HELLO")
+    console.log("HELLO");
     const service = await serviceService.getServiceById(req.params.id);
     if (!service) return res.status(404).json({ error: "Service not found" });
     res.status(200).json(service);
@@ -305,7 +378,6 @@ router.get("/:id", authMiddleware, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
 
 router.get("/restau/all", async (req, res) => {
   try {
@@ -319,7 +391,7 @@ router.get("/restau/all", async (req, res) => {
           { path: "facilities" }, // Populate facilities for the service
           { path: "priceCategories" }, // Populate price categories
           { path: "suitability" }, // Populate suitability (if any)
-        ]
+        ],
       })
       .populate("cuisineTypeIDs") // Populate cuisine types
       .populate("dishes") // Populate dish types
@@ -336,19 +408,17 @@ router.get("/restau/all", async (req, res) => {
           { path: "facilities" }, // Populate facilities for the service
           { path: "priceCategories" }, // Populate price categories
           { path: "suitability" }, // Populate suitability (if any)
-        ]
+        ],
       })
-      .populate("coffeeTypes") // Populate cuisine types
+      .populate("coffeeTypes"); // Populate cuisine types
 
-
-    res.status(200).json([restaurants,coffees]);
+    res.status(200).json([restaurants, coffees]);
   } catch (err) {
     console.log(err);
     console.error(err);
     res.status(500).json({ error: "Failed to fetch restaurants" });
   }
 });
-
 
 router.get("/cafe/all", async (req, res) => {
   try {
@@ -362,10 +432,9 @@ router.get("/cafe/all", async (req, res) => {
           { path: "facilities" }, // Populate facilities for the service
           { path: "priceCategories" }, // Populate price categories
           { path: "suitability" }, // Populate suitability (if any)
-        ]
+        ],
       })
-      .populate("coffeeTypes") // Populate cuisine types
-      
+      .populate("coffeeTypes"); // Populate cuisine types
 
     console.log(restaurants); // Check the populated data here
     res.status(200).json(restaurants);
@@ -375,7 +444,6 @@ router.get("/cafe/all", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch restaurants" });
   }
 });
-
 
 // DELETE - Xóa Service
 /**
@@ -412,26 +480,46 @@ router.delete("/:id", authMiddleware, async (req, res) => {
   }
 });
 
-
 router.post(
   "/:id",
   authMiddleware,
   roleMiddleware(["Provider", "Admin"]),
   [
-    body("serviceName").optional().notEmpty().withMessage("Service name is required"),
-    body("description").optional().isString().withMessage("Description must be a string"),
-    body("status").optional().isIn(["Active", "Inactive"]).withMessage("Invalid status"),
-    body("facilities").optional().isArray().withMessage("Facilities must be an array of IDs"),
-    body("priceCategories").optional().isArray().withMessage("Price categories must be an array of IDs"),
-    body("suitability").optional().isArray().withMessage("Suitability must be an array of IDs"),
-    body("images").optional().isArray().withMessage("Images must be an array of image URLs or base64 strings"),
+    body("serviceName")
+      .optional()
+      .notEmpty()
+      .withMessage("Service name is required"),
+    body("description")
+      .optional()
+      .isString()
+      .withMessage("Description must be a string"),
+    body("status")
+      .optional()
+      .isIn(["Active", "Inactive"])
+      .withMessage("Invalid status"),
+    body("facilities")
+      .optional()
+      .isArray()
+      .withMessage("Facilities must be an array of IDs"),
+    body("priceCategories")
+      .optional()
+      .isArray()
+      .withMessage("Price categories must be an array of IDs"),
+    body("suitability")
+      .optional()
+      .isArray()
+      .withMessage("Suitability must be an array of IDs"),
+    body("images")
+      .optional()
+      .isArray()
+      .withMessage("Images must be an array of image URLs or base64 strings"),
   ],
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
-   
+
     try {
       const {
         serviceName,
@@ -454,21 +542,27 @@ router.post(
       if (images) updateFields.images = images; // Directly use images from body
 
       // Update service in the database
-      const updatedService = await serviceService.updateServiceById(req.params.id, updateFields);
+      const updatedService = await serviceService.updateServiceById(
+        req.params.id,
+        updateFields
+      );
 
       if (!updatedService) {
         return res.status(404).json({ error: "Service not found" });
       }
 
-      res.status(200).json({ message: "Service updated successfully", data: updatedService });
+      res
+        .status(200)
+        .json({
+          message: "Service updated successfully",
+          data: updatedService,
+        });
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: err.message });
     }
   }
 );
-
-
 
 /**
  * @swagger
@@ -496,7 +590,6 @@ router.post(
  *       500:
  *         description: Server error
  */
-
 
 router.post("/", async (req, res) => {
   try {
@@ -575,7 +668,9 @@ router.post("/", async (req, res) => {
     }
 
     res.status(201).json({
-      message: `${type.charAt(0).toUpperCase() + type.slice(1)} and Service created successfully`,
+      message: `${
+        type.charAt(0).toUpperCase() + type.slice(1)
+      } and Service created successfully`,
       service: savedService,
       entity: createdEntity,
     });
@@ -584,10 +679,6 @@ router.post("/", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-
-
-
 
 router.post("/services/:id/reviews", async (req, res) => {
   const { id: serviceId } = req.params;
@@ -612,7 +703,8 @@ router.post("/services/:id/reviews", async (req, res) => {
 
     // Tạo mới review
     const review = new Review({
-      reviewID: Date.now().toString(36) + Math.random().toString(36).substring(2),
+      reviewID:
+        Date.now().toString(36) + Math.random().toString(36).substring(2),
       userID,
       positiveComment,
       stars,
