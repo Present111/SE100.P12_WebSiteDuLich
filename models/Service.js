@@ -35,40 +35,35 @@ const serviceSchema = new mongoose.Schema({
     enum: ["Active", "Inactive"], // Chỉ chấp nhận giá trị "Active" hoặc "Inactive"
     required: true,
   },
-
-  // Mảng tiện nghi liên kết
+  type: {
+    type: String,
+    enum: ["hotel", "restaurant", "cafe"], // Chỉ chấp nhận giá trị "hotel", "restaurant" hoặc "cafe"
+    required: true,
+  },
   facilities: [
     {
       type: mongoose.Schema.Types.ObjectId,
       ref: "FacilityType",
     },
   ],
-
-  // Mảng bảng giá liên kết
   priceCategories: [
     {
       type: mongoose.Schema.Types.ObjectId,
       ref: "PriceCategory",
     },
   ],
-
-  // Mảng mục phù hợp liên kết
   suitability: [
     {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Suitability",
     },
   ],
-
-  // Mảng đánh giá liên kết
   reviews: [
     {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Review",
     },
   ],
-
-  // Mảng hình ảnh
   images: [
     {
       type: String, // Lưu đường dẫn tới ảnh

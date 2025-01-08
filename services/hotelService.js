@@ -2,6 +2,8 @@ const Hotel = require("../models/Hotel");
 const Service = require("../models/Service");
 const HotelType = require("../models/HotelType");
 const Room = require("../models/Room");
+const Restaurant = require("../models/Restaurant");
+const Coffee = require("../models/Coffee");
 
 /**
  * Tạo một Hotel mới
@@ -136,7 +138,111 @@ const getHotelById1 = async (id) => {
 
     // Kiểm tra nếu không tìm thấy khách sạn
     if (!hotel) {
-      throw new Error("Hotel not found");
+
+      const restaurant = await Restaurant.findById(id)
+      .populate({
+        path: "serviceID", // Populate thông tin dịch vụ
+        populate: [
+          {
+            path: "locationID", // Populate thông tin Location
+            model: "Location",
+          },
+          {
+            path: "providerID", // Populate thông tin Provider và userID
+            model: "Provider",
+            populate: {
+              path: "userID", // Populate thông tin User từ userID
+              model: "User",
+            },
+          },
+          {
+            path: "facilities", // Populate tiện ích dịch vụ
+            model: "FacilityType",
+          },
+          {
+            path: "priceCategories", // Populate bảng giá
+            model: "PriceCategory",
+          },
+          {
+            path: "suitability", // Populate phù hợp
+            model: "Suitability",
+          },
+          {
+            path: "reviews", // Populate đánh giá
+            model: "Review",
+            populate: {
+              path: "userID", // Populate userID within reviews to get user details
+              model: "User", // Specify User model to get full user data
+            },
+          },
+        ],
+      })
+      .populate({
+        path: "restaurantTypeID", // Populate loại hình khách sạn
+      
+      })
+      .populate({
+        path: "cuisineTypeIDs", // Populate loại hình khách sạn
+      
+      })
+      .populate({
+        path: "dishes", // Populate loại hình khách sạn
+      
+      });
+
+      if (!restaurant) {
+        const restaurant = await Coffee.findById(id)
+      .populate({
+        path: "serviceID", // Populate thông tin dịch vụ
+        populate: [
+          {
+            path: "locationID", // Populate thông tin Location
+            model: "Location",
+          },
+          {
+            path: "providerID", // Populate thông tin Provider và userID
+            model: "Provider",
+            populate: {
+              path: "userID", // Populate thông tin User từ userID
+              model: "User",
+            },
+          },
+          {
+            path: "facilities", // Populate tiện ích dịch vụ
+            model: "FacilityType",
+          },
+          {
+            path: "priceCategories", // Populate bảng giá
+            model: "PriceCategory",
+          },
+          {
+            path: "suitability", // Populate phù hợp
+            model: "Suitability",
+          },
+          {
+            path: "reviews", // Populate đánh giá
+            model: "Review",
+            populate: {
+              path: "userID", // Populate userID within reviews to get user details
+              model: "User", // Specify User model to get full user data
+            },
+          },
+        ],
+      })
+      .populate({
+        path: "coffeeTypes", // Populate loại hình khách sạn
+      
+      });
+
+      if (!restaurant) {
+        throw new Error("Neither Hotel nor Restaurant found");
+      }
+
+      return { hotel:restaurant, rooms:[] };
+      }
+
+      return { hotel:restaurant, rooms:[] };
+    
     }
 
     // Truy vấn thông tin các phòng (rooms) tham chiếu đến khách sạn này
@@ -149,6 +255,7 @@ const getHotelById1 = async (id) => {
     // Trả về thông tin khách sạn với tất cả các dữ liệu đã populate, bao gồm phòng
     return { hotel, rooms };
   } catch (err) {
+    console.log(err)
     // Lỗi trong quá trình truy vấn hoặc populate
     throw new Error(err.message);
   }

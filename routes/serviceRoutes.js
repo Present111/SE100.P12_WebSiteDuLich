@@ -9,6 +9,8 @@ const Location = require("../models/Location");
 const Hotel = require("../models/Hotel");
 const Review = require("../models/Review");
 const Invoice = require("../models/Invoice");
+const Restaurant = require("../models/Restaurant");
+const Coffee = require("../models/Coffee");
 const router = express.Router();
 
 /**
@@ -231,6 +233,44 @@ router.get(
   }
 );
 
+router.get("/:id/details", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find the service and populate the required fields
+    const service = await Service.findById(id)
+      .populate("suitability")
+      .populate("facilities");
+
+    if (!service) {
+      return res.status(404).json({ message: "Service not found" });
+    }
+
+    // Combine suitability and facilities into one array
+    const combinedData = [
+      ...service.suitability,
+      ...service.facilities,
+    ];
+
+    res.json({
+      service: {
+        serviceID: service.serviceID,
+        serviceName: service.serviceName,
+        price: service.price,
+        discountPrice: service.discountPrice,
+        description: service.description,
+        status: service.status,
+        type: service.type,
+        images: service.images,
+      },
+      combinedData, // Combined suitability and facilities
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // READ ONE - Lấy chi tiết Service
 /**
  * @swagger
@@ -265,6 +305,77 @@ router.get("/:id", authMiddleware, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+
+router.get("/restau/all", async (req, res) => {
+  try {
+    console.log("DIT");
+    const restaurants = await Restaurant.find()
+      .populate({
+        path: "serviceID", // Populate the serviceID field
+        populate: [
+          { path: "providerID" }, // Populate provider information
+          { path: "locationID" }, // Populate location information
+          { path: "facilities" }, // Populate facilities for the service
+          { path: "priceCategories" }, // Populate price categories
+          { path: "suitability" }, // Populate suitability (if any)
+        ]
+      })
+      .populate("cuisineTypeIDs") // Populate cuisine types
+      .populate("dishes") // Populate dish types
+      .populate("restaurantTypeID"); // Populate restaurant type
+
+    console.log(restaurants); // Check the populated data here
+
+    const coffees = await Coffee.find()
+      .populate({
+        path: "serviceID", // Populate the serviceID field
+        populate: [
+          { path: "providerID" }, // Populate provider information
+          { path: "locationID" }, // Populate location information
+          { path: "facilities" }, // Populate facilities for the service
+          { path: "priceCategories" }, // Populate price categories
+          { path: "suitability" }, // Populate suitability (if any)
+        ]
+      })
+      .populate("coffeeTypes") // Populate cuisine types
+
+
+    res.status(200).json([restaurants,coffees]);
+  } catch (err) {
+    console.log(err);
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch restaurants" });
+  }
+});
+
+
+router.get("/cafe/all", async (req, res) => {
+  try {
+    console.log("DIT");
+    const restaurants = await Coffee.find()
+      .populate({
+        path: "serviceID", // Populate the serviceID field
+        populate: [
+          { path: "providerID" }, // Populate provider information
+          { path: "locationID" }, // Populate location information
+          { path: "facilities" }, // Populate facilities for the service
+          { path: "priceCategories" }, // Populate price categories
+          { path: "suitability" }, // Populate suitability (if any)
+        ]
+      })
+      .populate("coffeeTypes") // Populate cuisine types
+      
+
+    console.log(restaurants); // Check the populated data here
+    res.status(200).json(restaurants);
+  } catch (err) {
+    console.log(err);
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch restaurants" });
+  }
+});
+
 
 // DELETE - Xóa Service
 /**
