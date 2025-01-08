@@ -6,6 +6,104 @@ const userService = require("../services/userService");
 const router = express.Router();
 const nodemailer = require("nodemailer");
 const User = require("../models/User");
+
+/**
+ * @swagger
+ * /api/users/filter:
+ *   get:
+ *     summary: Lọc danh sách người dùng theo năm và vai trò, trả về số lượng theo từng tháng
+ *     tags: [Users]
+ *     parameters:
+ *       - name: year
+ *         in: query
+ *         required: true
+ *         schema:
+ *           type: number
+ *         description: Năm để lọc (bắt buộc)
+ *       - name: role
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [Admin, Provider, Customer]
+ *         description: Vai trò để lọc (tùy chọn)
+ *     responses:
+ *       200:
+ *         description: Danh sách người dùng theo bộ lọc
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 year:
+ *                   type: number
+ *                 role:
+ *                   type: string
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       month:
+ *                         type: number
+ *                         example: 1
+ *                       count:
+ *                         type: number
+ *                         example: 10
+ *       400:
+ *         description: Yêu cầu không hợp lệ
+ *       500:
+ *         description: Lỗi máy chủ nội bộ
+ */
+
+router.get("/filter", async (req, res) => {
+  try {
+    const { year, role } = req.query;
+
+    // Kiểm tra tham số đầu vào
+    if (!year || isNaN(year)) {
+      return res
+        .status(400)
+        .json({ error: "Year is required and must be a number" });
+    }
+
+    if (role && !["Admin", "Provider", "Customer"].includes(role)) {
+      return res.status(400).json({ error: "Invalid role value" });
+    }
+
+    // Tạo mảng kết quả cho từng tháng
+    const monthlyCounts = [];
+
+    // Lặp qua 12 tháng
+    for (let month = 0; month < 12; month++) {
+      const start = new Date(year, month, 1); // Đầu tháng
+      const end = new Date(year, month + 1, 0, 23, 59, 59); // Cuối tháng
+
+      const query = { createdAt: { $gte: start, $lte: end } };
+
+      if (role) {
+        query.role = role; // Thêm vai trò vào query nếu có
+      }
+
+      // Đếm số lượng user trong tháng hiện tại
+      const count = await User.countDocuments(query);
+
+      // Thêm kết quả vào mảng
+      monthlyCounts.push({ month: month + 1, count });
+    }
+
+    // Trả về kết quả
+    res.status(200).json({
+      year,
+      role: role || "All",
+      data: monthlyCounts, // Dữ liệu theo tháng
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post(
   "/",
   authMiddleware,
@@ -44,106 +142,6 @@ router.get("/", async (req, res) => {
     const users = await userService.getAllUsers();
     console.log(users);
     res.status(200).json(users);
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * @swagger
- * /api/users/filter:
- *   get:
- *     summary: Lọc danh sách người dùng theo năm, tháng và vai trò
- *     tags: [Users]
- *     parameters:
- *       - name: year
- *         in: query
- *         required: true
- *         schema:
- *           type: number
- *         description: Năm để lọc (bắt buộc)
- *       - name: month
- *         in: query
- *         required: false
- *         schema:
- *           type: number
- *         description: Tháng để lọc (tùy chọn, 1 đến 12)
- *       - name: role
- *         in: query
- *         required: false
- *         schema:
- *           type: string
- *           enum: [Admin, Provider, Customer]
- *         description: Vai trò để lọc (tùy chọn)
- *     responses:
- *       200:
- *         description: Danh sách người dùng theo bộ lọc
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 year:
- *                   type: number
- *                 month:
- *                   type: string
- *                 role:
- *                   type: string
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *       400:
- *         description: Yêu cầu không hợp lệ
- *       500:
- *         description: Lỗi máy chủ nội bộ
- */
-router.get("/filter", async (req, res) => {
-  try {
-    const { year, month, role } = req.query;
-
-    // Kiểm tra tham số đầu vào
-    if (!year || isNaN(year)) {
-      return res
-        .status(400)
-        .json({ error: "Year is required and must be a number" });
-    }
-
-    if (month && (isNaN(month) || month < 1 || month > 12)) {
-      return res.status(400).json({ error: "Month must be between 1 and 12" });
-    }
-
-    if (role && !["Admin", "Provider", "Customer"].includes(role)) {
-      return res.status(400).json({ error: "Invalid role value" });
-    }
-
-    // Tính khoảng thời gian theo tháng hoặc năm
-    let start, end;
-    if (month) {
-      start = new Date(year, month - 1, 1); // Ngày đầu tháng
-      end = new Date(year, month, 0, 23, 59, 59); // Ngày cuối tháng
-    } else {
-      start = new Date(year, 0, 1); // Ngày đầu năm
-      end = new Date(year, 11, 31, 23, 59, 59); // Ngày cuối năm
-    }
-
-    // Tạo query
-    const query = { createdAt: { $gte: start, $lte: end } };
-    if (role) {
-      query.role = role;
-    }
-
-    // Đếm số lượng user khớp với query
-    const count = await User.countDocuments(query);
-
-    // Trả về số lượng
-    res.status(200).json({
-      year,
-      month: month || "All",
-      role: role || "All",
-      count, // Tổng số lượng người dùng
-    });
   } catch (err) {
     console.log(err);
     res.status(500).json({ error: err.message });

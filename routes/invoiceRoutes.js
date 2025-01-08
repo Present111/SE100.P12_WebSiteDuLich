@@ -314,12 +314,10 @@ router.put("/invoices/:invoiceID/status", async (req, res) => {
       .json({ message: "Status updated successfully", updatedInvoice });
   } catch (error) {
     console.log(error);
-    res
-      .status(500)
-      .json({
-        error: "An error occurred while updating status",
-        details: error.message,
-      });
+    res.status(500).json({
+      error: "An error occurred while updating status",
+      details: error.message,
+    });
   }
 });
 
@@ -384,7 +382,7 @@ router.get("/orders", async (req, res) => {
  * @swagger
  * /api/invoices/total-amount:
  *   get:
- *     summary: Tính tổng số tiền của các hóa đơn đã thanh toán (paymentStatus = "paid") theo năm và tháng
+ *     summary: Tính tổng số tiền của các hóa đơn đã thanh toán theo từng tháng trong năm
  *     tags: [Invoices]
  *     parameters:
  *       - name: year
@@ -393,33 +391,36 @@ router.get("/orders", async (req, res) => {
  *         schema:
  *           type: integer
  *         description: Năm để lọc (bắt buộc)
- *       - name: month
- *         in: query
- *         required: false
- *         schema:
- *           type: integer
- *           minimum: 1
- *           maximum: 12
- *         description: Tháng để lọc (tùy chọn, từ 1 đến 12)
  *     responses:
  *       200:
- *         description: Tổng số tiền của các hóa đơn đã thanh toán
+ *         description: Tổng số tiền của các hóa đơn đã thanh toán theo từng tháng
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 totalAmount:
- *                   type: number
- *                   example: 5000
+ *                 year:
+ *                   type: integer
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       month:
+ *                         type: integer
+ *                         example: 1
+ *                       totalAmount:
+ *                         type: number
+ *                         example: 5000
  *       400:
  *         description: Dữ liệu đầu vào không hợp lệ
  *       500:
  *         description: Lỗi server
  */
+
 router.get("/total-amount", async (req, res) => {
   try {
-    const { year, month } = req.query;
+    const { year } = req.query;
 
     // Kiểm tra dữ liệu đầu vào
     if (!year || isNaN(year)) {
@@ -427,41 +428,43 @@ router.get("/total-amount", async (req, res) => {
         .status(400)
         .json({ error: "Year is required and must be a number" });
     }
-    if (month && (isNaN(month) || month < 1 || month > 12)) {
-      return res.status(400).json({ error: "Month must be between 1 and 12" });
+
+    // Mảng để lưu kết quả tổng tiền theo từng tháng
+    const monthlyTotals = [];
+
+    // Lặp qua từng tháng (1-12)
+    for (let month = 0; month < 12; month++) {
+      const start = new Date(year, month, 1); // Ngày đầu tháng
+      const end = new Date(year, month + 1, 0, 23, 59, 59); // Ngày cuối tháng
+
+      // Tính tổng số tiền của các hóa đơn đã thanh toán trong tháng
+      const result = await Invoice.aggregate([
+        {
+          $match: {
+            issueDate: { $gte: start, $lte: end },
+            paymentStatus: "paid", // Chỉ tính hóa đơn đã thanh toán
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalAmount: { $sum: "$totalAmount" }, // Tính tổng tiền
+          },
+        },
+      ]);
+
+      // Thêm kết quả vào mảng
+      monthlyTotals.push({
+        month: month + 1,
+        totalAmount: result.length > 0 ? result[0].totalAmount : 0, // Nếu không có kết quả thì trả về 0
+      });
     }
 
-    // Xác định khoảng thời gian lọc
-    let start, end;
-    if (month) {
-      const monthStr = month.toString().padStart(2, "0");
-      start = new Date(`${year}-${monthStr}-01T00:00:00.000Z`);
-      end = new Date(`${year}-${monthStr}-31T23:59:59.999Z`);
-    } else {
-      start = new Date(`${year}-01-01T00:00:00.000Z`);
-      end = new Date(`${year}-12-31T23:59:59.999Z`);
-    }
-
-    // Tính tổng số tiền của các hóa đơn đã thanh toán
-    const result = await Invoice.aggregate([
-      {
-        $match: {
-          issueDate: { $gte: start, $lte: end },
-          paymentStatus: "paid", // Lọc paymentStatus = "paid"
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          totalAmount: { $sum: "$totalAmount" }, // Tính tổng tiền
-        },
-      },
-    ]);
-
-    // Lấy kết quả tổng số tiền
-    const totalAmount = result.length > 0 ? result[0].totalAmount : 0;
-
-    res.status(200).json({ totalAmount });
+    // Trả về kết quả
+    res.status(200).json({
+      year,
+      data: monthlyTotals, // Tổng số tiền theo từng tháng
+    });
   } catch (err) {
     console.error("Lỗi khi tính tổng số tiền:", err);
     res.status(500).json({ error: err.message });

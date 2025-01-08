@@ -26,7 +26,7 @@ const router = express.Router();
  * @swagger
  * /api/services/count:
  *   get:
- *     summary: Đếm số lượng Services được tạo theo năm và tháng
+ *     summary: Đếm số lượng Services được tạo theo năm và từng tháng
  *     tags: [Services]
  *     parameters:
  *       - name: year
@@ -35,24 +35,27 @@ const router = express.Router();
  *         schema:
  *           type: integer
  *         description: Năm để lọc (bắt buộc)
- *       - name: month
- *         in: query
- *         required: false
- *         schema:
- *           type: integer
- *           minimum: 1
- *           maximum: 12
- *         description: Tháng để lọc (tùy chọn, từ 1 đến 12)
  *     responses:
  *       200:
- *         description: Số lượng Services phù hợp với bộ lọc
+ *         description: Số lượng Services theo từng tháng
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 count:
+ *                 year:
  *                   type: integer
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       month:
+ *                         type: integer
+ *                         example: 1
+ *                       count:
+ *                         type: integer
+ *                         example: 15
  *       400:
  *         description: Dữ liệu đầu vào không hợp lệ
  *       500:
@@ -60,8 +63,7 @@ const router = express.Router();
  */
 router.get("/count", async (req, res) => {
   try {
-    // Nhận query từ request
-    const { year, month } = req.query;
+    const { year } = req.query;
 
     // Kiểm tra đầu vào
     if (!year || isNaN(year)) {
@@ -69,31 +71,29 @@ router.get("/count", async (req, res) => {
         .status(400)
         .json({ error: "Year is required and must be a number" });
     }
-    if (month && (isNaN(month) || month < 1 || month > 12)) {
-      return res.status(400).json({ error: "Month must be between 1 and 12" });
-    }
 
-    // Xác định khoảng thời gian lọc
-    let start, end;
-    if (month) {
-      start = new Date(
-        `${year}-${month.toString().padStart(2, "0")}-01T00:00:00.000Z`
-      );
-      end = new Date(
-        `${year}-${month.toString().padStart(2, "0")}-31T23:59:59.999Z`
-      );
-    } else {
-      start = new Date(`${year}-01-01T00:00:00.000Z`);
-      end = new Date(`${year}-12-31T23:59:59.999Z`);
-    }
+    // Mảng kết quả để lưu số lượng theo từng tháng
+    const monthlyCounts = [];
 
-    // Đếm số lượng Service theo khoảng thời gian
-    const count = await Service.countDocuments({
-      createdAt: { $gte: start, $lte: end },
-    });
+    // Lặp qua từng tháng từ 1 đến 12
+    for (let month = 0; month < 12; month++) {
+      const start = new Date(year, month, 1); // Ngày đầu tháng
+      const end = new Date(year, month + 1, 0, 23, 59, 59); // Ngày cuối tháng
+
+      // Đếm số lượng Service trong tháng hiện tại
+      const count = await Service.countDocuments({
+        createdAt: { $gte: start, $lte: end },
+      });
+
+      // Thêm kết quả vào mảng
+      monthlyCounts.push({ month: month + 1, count });
+    }
 
     // Trả về kết quả
-    res.status(200).json({ count });
+    res.status(200).json({
+      year,
+      data: monthlyCounts, // Số lượng theo từng tháng
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal server error" });
@@ -551,12 +551,10 @@ router.post(
         return res.status(404).json({ error: "Service not found" });
       }
 
-      res
-        .status(200)
-        .json({
-          message: "Service updated successfully",
-          data: updatedService,
-        });
+      res.status(200).json({
+        message: "Service updated successfully",
+        data: updatedService,
+      });
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: err.message });
