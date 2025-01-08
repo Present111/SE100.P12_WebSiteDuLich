@@ -1,9 +1,14 @@
 const express = require("express");
 const { body, validationResult } = require("express-validator");
 const invoiceService = require("../services/invoiceService");
-const Invoice = require("../models/Invoice");
-const Hotel = require("../models/Hotel");
+
 const router = express.Router();
+const mongoose = require("mongoose");
+const Invoice = require("../models/Invoice"); // Import model Invoice
+const Room = require("../models/Room"); // Import model Room
+const Hotel = require("../models/Hotel"); // Import model Hotel
+const Service = require("../models/Service"); // Import model Service
+const Provider = require("../models/Provider"); // Import model Provider
 
 /**
  * @swagger
@@ -11,6 +16,251 @@ const router = express.Router();
  *   name: Invoices
  *   description: API quản lý hóa đơn
  */
+
+/**
+ * @swagger
+ * /api/invoices/revenue:
+ *   get:
+ *     summary: Tính doanh thu cho mỗi roomID từ userID và tháng, năm
+ *     tags: [Invoices]
+ *     parameters:
+ *       - name: userID
+ *         in: query
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID của người dùng
+ *       - name: month
+ *         in: query
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 12
+ *         description: Tháng cần tính doanh thu (1 - 12)
+ *       - name: year
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: Năm để lọc dữ liệu (mặc định là năm hiện tại nếu không nhập)
+ *     responses:
+ *       200:
+ *         description: Danh sách doanh thu của từng roomID
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       roomID:
+ *                         type: string
+ *                       revenue:
+ *                         type: number
+ *                         example: 5000
+ *       400:
+ *         description: Dữ liệu đầu vào không hợp lệ
+ *       500:
+ *         description: Lỗi server
+ */
+
+router.get("/revenue", async (req, res) => {
+  try {
+    const { userID, month, year } = req.query;
+
+    // Kiểm tra dữ liệu đầu vào
+    if (!userID) {
+      return res.status(400).json({ error: "userID is required" });
+    }
+    if (!month || isNaN(month) || month < 1 || month > 12) {
+      return res.status(400).json({ error: "Month must be between 1 and 12" });
+    }
+
+    // Sử dụng năm hiện tại nếu không nhập
+    const currentYear = new Date().getFullYear();
+    const selectedYear = year || currentYear;
+
+    // Xác định khoảng thời gian của tháng và năm
+    const start = new Date(selectedYear, month - 1, 1);
+    const end = new Date(selectedYear, month, 0, 23, 59, 59);
+
+    // --- Lấy danh sách roomID từ API /by-user ---
+    const rooms = await Room.find().populate({
+      path: "hotelID",
+      populate: {
+        path: "serviceID",
+        populate: {
+          path: "providerID",
+          match: { userID: new mongoose.Types.ObjectId(userID) },
+        },
+      },
+    });
+
+    // Lọc roomID thỏa mãn điều kiện
+    const roomIDs = rooms
+      .filter((room) => room.hotelID?.serviceID?.providerID)
+      .map((room) => room._id); // Trả về ObjectId
+
+    // --- Tính toán doanh thu ---
+    const invoices = await Invoice.find({
+      roomID: { $in: roomIDs }, // Chỉ xét roomID có trong danh sách
+      issueDate: { $gte: start, $lte: end }, // Lọc theo tháng và năm
+      paymentStatus: "paid", // Chỉ tính hóa đơn đã thanh toán
+    });
+
+    // Tính doanh thu theo từng roomID
+    const revenueMap = {};
+
+    // Khởi tạo doanh thu bằng 0 cho tất cả roomID
+    roomIDs.forEach((id) => {
+      revenueMap[id.toString()] = 0;
+    });
+
+    invoices.forEach((invoice) => {
+      const roomID = invoice.roomID.toString();
+      const amount = invoice.totalAmount || 0;
+
+      if (!revenueMap[roomID]) {
+        revenueMap[roomID] = 0;
+      }
+      revenueMap[roomID] += amount; // Cộng dồn revenue
+    });
+
+    // Chuyển kết quả sang mảng để trả về
+    const result = Object.keys(revenueMap).map((roomID) => ({
+      roomID,
+      revenue: revenueMap[roomID],
+    }));
+
+    // Trả về kết quả
+    res.status(200).json({ data: result });
+  } catch (err) {
+    console.error("Lỗi khi tính doanh thu:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/invoices/revenue/yearly:
+ *   get:
+ *     summary: Tính doanh thu cho mỗi roomID theo userID và năm
+ *     tags: [Invoices]
+ *     parameters:
+ *       - name: userID
+ *         in: query
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID của người dùng
+ *       - name: year
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: Năm để lọc dữ liệu (mặc định là năm hiện tại nếu không nhập)
+ *     responses:
+ *       200:
+ *         description: Danh sách doanh thu của từng roomID trong năm
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       roomID:
+ *                         type: string
+ *                       revenue:
+ *                         type: number
+ *                         example: 15000
+ *       400:
+ *         description: Dữ liệu đầu vào không hợp lệ
+ *       500:
+ *         description: Lỗi server
+ */
+
+router.get("/revenue/yearly", async (req, res) => {
+  try {
+    const { userID, year } = req.query;
+
+    // Kiểm tra dữ liệu đầu vào
+    if (!userID || !mongoose.Types.ObjectId.isValid(userID)) {
+      return res.status(400).json({ error: "Invalid or missing userID" });
+    }
+
+    // Chuyển userID thành ObjectId
+    const userObjectId = new mongoose.Types.ObjectId(userID);
+
+    // Sử dụng năm hiện tại nếu không nhập
+    const currentYear = new Date().getFullYear();
+    const selectedYear = year || currentYear;
+
+    // Xác định khoảng thời gian của năm được chọn
+    const start = new Date(selectedYear, 0, 1); // Ngày đầu năm
+    const end = new Date(selectedYear, 11, 31, 23, 59, 59); // Ngày cuối năm
+
+    // Lấy danh sách roomID từ API `/by-user`
+    const rooms = await Room.find().populate({
+      path: "hotelID",
+      populate: {
+        path: "serviceID",
+        populate: {
+          path: "providerID",
+          match: { userID: userObjectId },
+        },
+      },
+    });
+
+    const roomIDs = rooms
+      .filter((room) => room.hotelID?.serviceID?.providerID)
+      .map((room) => room._id); // Trả về ObjectId
+
+    // --- Tính toán doanh thu ---
+    const invoices = await Invoice.find({
+      roomID: { $in: roomIDs }, // Chỉ xét roomID có trong danh sách
+      issueDate: { $gte: start, $lte: end }, // Lọc theo năm
+      paymentStatus: "paid", // Chỉ tính hóa đơn đã thanh toán
+    });
+
+    // Tính doanh thu theo từng roomID
+    const revenueMap = {};
+
+    // Khởi tạo doanh thu bằng 0 cho tất cả roomID
+    roomIDs.forEach((id) => {
+      revenueMap[id.toString()] = 0;
+    });
+
+    invoices.forEach((invoice) => {
+      const roomID = invoice.roomID.toString();
+      const amount = invoice.totalAmount || 0;
+
+      if (!revenueMap[roomID]) {
+        revenueMap[roomID] = 0;
+      }
+      revenueMap[roomID] += amount; // Cộng dồn revenue
+    });
+
+    // Chuyển kết quả sang mảng để trả về
+    const result = Object.keys(revenueMap).map((roomID) => ({
+      roomID,
+      revenue: revenueMap[roomID],
+    }));
+
+    // Trả về kết quả
+    res.status(200).json({ data: result });
+  } catch (err) {
+    console.error("Lỗi khi tính doanh thu:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // CREATE - Tạo mới Invoice
 /**
@@ -57,7 +307,6 @@ const router = express.Router();
  *       500:
  *         description: Server error
  */
-
 
 // CREATE - Tạo mới hóa đơn
 /**
@@ -106,12 +355,27 @@ const router = express.Router();
  */
 router.post("/", async (req, res) => {
   try {
+<<<<<<< HEAD
     const { userID, serviceID, quantity, totalAmount, roomID, checkInDate, checkOutDate ,pictures,invoiceID, invoiceType,
       arrivalDate,
       arrivalTime,
       adults , 
       children , } = req.body;
   
+=======
+    const {
+      userID,
+      serviceID,
+      quantity,
+      totalAmount,
+      roomID,
+      checkInDate,
+      checkOutDate,
+      pictures,
+      invoiceID,
+    } = req.body;
+
+>>>>>>> cd2c8caeef640f42dbabc1067e80529e618101b4
     // Tạo invoice mới
     const newInvoice = new Invoice({
       invoiceID,
@@ -126,11 +390,14 @@ router.post("/", async (req, res) => {
       checkInDate,
       checkOutDate,
       pictures,
+<<<<<<< HEAD
       invoiceType,
       arrivalDate,
       arrivalTime,
       adults , 
       children , 
+=======
+>>>>>>> cd2c8caeef640f42dbabc1067e80529e618101b4
     });
 
     // Lưu vào cơ sở dữ liệu
@@ -139,30 +406,34 @@ router.post("/", async (req, res) => {
     // Trả về hóa đơn mới tạo
     res.status(201).json(newInvoice);
   } catch (err) {
+<<<<<<< HEAD
    console.log(err)
+=======
+>>>>>>> cd2c8caeef640f42dbabc1067e80529e618101b4
     res.status(500).json({ error: err.message });
   }
 });
-
 
 // API lấy hóa đơn theo userID
 router.get("/user/:userID", async (req, res) => {
   try {
     const { userID } = req.params;
-    console.log(userID)
+    console.log(userID);
     // Tìm tất cả hóa đơn theo userID và populate cả serviceID và roomID
     const invoices = await Invoice.find({ userID })
-    .populate({
-      path: 'serviceID', // Populate serviceID
-      populate: {
-        path: 'locationID' // Populate locationID trong serviceID
-      }
-    })    // Populate serviceID
-      .populate('roomID')    // Populate roomID
-      .populate('review')
-      //console.log("HELLO",userID)
+      .populate({
+        path: "serviceID", // Populate serviceID
+        populate: {
+          path: "locationID", // Populate locationID trong serviceID
+        },
+      }) // Populate serviceID
+      .populate("roomID") // Populate roomID
+      .populate("review");
+    //console.log("HELLO",userID)
     if (!invoices || invoices.length === 0) {
-      return res.status(404).json({ message: "Không tìm thấy hóa đơn nào cho userID này" });
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy hóa đơn nào cho userID này" });
     }
 
     // Trả về danh sách hóa đơn với thông tin serviceID và roomID đã được populate
@@ -173,8 +444,6 @@ router.get("/user/:userID", async (req, res) => {
   }
 });
 
-
-
 // API lấy hóa đơn theo userID
 router.get("/provider/:userID", async (req, res) => {
   try {
@@ -183,22 +452,25 @@ router.get("/provider/:userID", async (req, res) => {
     // Tìm tất cả hóa đơn theo userID và populate cả serviceID và roomID
     const invoices = await Invoice.find({ providerID })
       .populate({
-        path: 'serviceID', // Populate serviceID
+        path: "serviceID", // Populate serviceID
         populate: {
-          path: 'locationID' // Populate locationID trong serviceID
-        }
-      })  // Populate serviceID
-      .populate('roomID');    // Populate roomID
+          path: "locationID", // Populate locationID trong serviceID
+        },
+      }) // Populate serviceID
+      .populate("roomID"); // Populate roomID
 
     if (!invoices || invoices.length === 0) {
-      return res.status(404).json({ message: "Không tìm thấy hóa đơn nào cho userID này" });
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy hóa đơn nào cho userID này" });
     }
 
     for (let invoice of invoices) {
       if (invoice.serviceID) {
         const hotel = await Hotel.findOne({ serviceID: invoice.serviceID._id })
-          .populate('serviceID')  // Populate thông tin serviceID trong khách sạn
-          .populate('hotelTypeID').populate('review');  // Populate loại hình khách sạn
+          .populate("serviceID") // Populate thông tin serviceID trong khách sạn
+          .populate("hotelTypeID")
+          .populate("review"); // Populate loại hình khách sạn
 
         // Thêm thông tin khách sạn vào hóa đơn
         invoice.hotel = hotel;
@@ -211,8 +483,6 @@ router.get("/provider/:userID", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-
 
 // READ ONE - Lấy chi tiết Invoice
 /**
@@ -236,7 +506,6 @@ router.get("/provider/:userID", async (req, res) => {
  *       500:
  *         description: Server error
  */
-
 
 // UPDATE - Cập nhật Invoice
 /**
@@ -287,10 +556,9 @@ router.get("/provider/:userID", async (req, res) => {
 //   }
 // });
 
-
 router.put("/invoices/:invoiceID/status", async (req, res) => {
-  console.log('HELLO')
-  
+  console.log("HELLO");
+
   const { invoiceID } = req.params;
   const { status } = req.body;
 
@@ -308,17 +576,21 @@ router.put("/invoices/:invoiceID/status", async (req, res) => {
     );
 
     if (!updatedInvoice) {
-      console.log("@")
+      console.log("@");
       return res.status(404).json({ error: "Invoice not found" });
     }
 
-    res.status(200).json({ message: "Status updated successfully", updatedInvoice });
+    res
+      .status(200)
+      .json({ message: "Status updated successfully", updatedInvoice });
   } catch (error) {
-    console.log(error)
-    res.status(500).json({ error: "An error occurred while updating status", details: error.message });
+    console.log(error);
+    res.status(500).json({
+      error: "An error occurred while updating status",
+      details: error.message,
+    });
   }
 });
-
 
 // DELETE - Xóa Invoice
 /**
@@ -343,7 +615,6 @@ router.put("/invoices/:invoiceID/status", async (req, res) => {
  *         description: Server error
  */
 router.delete("/:id", async (req, res) => {
-
   try {
     await invoiceService.deleteInvoiceById(req.params.id);
     res.status(200).json({ message: "Invoice deleted successfully" });
@@ -353,18 +624,18 @@ router.delete("/:id", async (req, res) => {
 });
 // API lấy tất cả đơn hàng
 router.get("/orders", async (req, res) => {
-  console.log("HELLO")
+  console.log("HELLO");
   try {
     // Tìm tất cả các đơn hàng và populate các trường liên quan
     const orders = await Invoice.find()
-  .populate('userID')     // Populate thông tin người dùng
-  .populate({
-    path: 'serviceID',    // Populate thông tin dịch vụ
-    populate: {
-      path: 'providerID', // Populate thông tin nhà cung cấp trong serviceID
-    },
-  })
-  .populate('roomID');    // Populate thông tin phòng (nếu có)
+      .populate("userID") // Populate thông tin người dùng
+      .populate({
+        path: "serviceID", // Populate thông tin dịch vụ
+        populate: {
+          path: "providerID", // Populate thông tin nhà cung cấp trong serviceID
+        },
+      })
+      .populate("roomID"); // Populate thông tin phòng (nếu có)
 
     if (!orders || orders.length === 0) {
       return res.status(404).json({ message: "Không tìm thấy đơn hàng nào" });
