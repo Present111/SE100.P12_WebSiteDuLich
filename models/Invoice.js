@@ -70,6 +70,16 @@ const invoiceSchema = new mongoose.Schema({
     type: String,
     required: true, // Thời gian đến (hh:mm format)
   },
+  adults: {
+    type: Number,
+    required: true,
+    min: 1, // Tối thiểu một người lớn
+  }, // Số lượng người lớn
+  children: {
+    type: Number,
+    required: true,
+    min: 0, // Số lượng trẻ em (có thể không có)
+  }, // Số lượng trẻ em
 });
 
 module.exports = mongoose.model("Invoice", invoiceSchema);

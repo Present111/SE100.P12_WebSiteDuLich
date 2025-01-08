@@ -496,12 +496,18 @@ router.post(
  *       500:
  *         description: Server error
  */
+
+
 router.post("/", async (req, res) => {
   try {
-    const { providerID } = req.body;
+    const { providerID, type } = req.body;
 
     if (!providerID) {
       return res.status(400).json({ error: "ProviderID is required" });
+    }
+
+    if (!type || !["hotel", "restaurant", "cafe"].includes(type)) {
+      return res.status(400).json({ error: "Invalid or missing type" });
     }
 
     // Tạo mới một Location với dữ liệu mặc định
@@ -525,6 +531,7 @@ router.post("/", async (req, res) => {
       discountPrice: 80,
       description: "This is a default service",
       status: "Inactive",
+      type,
       facilities: [],
       priceCategories: [],
       suitability: [],
@@ -534,26 +541,50 @@ router.post("/", async (req, res) => {
 
     const savedService = await newService.save();
 
-    // Tạo mới một Hotel với serviceID vừa tạo và dữ liệu mặc định
-    const newHotel = new Hotel({
-      hotelID: `HOT-${Date.now()}`,
-      serviceID: savedService._id,
-      starRating: 3, // Giá trị mặc định
-      hotelTypeID: null, // Tạo ObjectId giả định
-    });
-
-    const savedHotel = await newHotel.save();
+    let createdEntity;
+    if (type === "hotel") {
+      // Tạo Hotel
+      const newHotel = new Hotel({
+        hotelID: `HOT-${Date.now()}`,
+        serviceID: savedService._id,
+        starRating: 3,
+        hotelTypeID: null,
+      });
+      createdEntity = await newHotel.save();
+    } else if (type === "restaurant") {
+      // Tạo Restaurant
+      const newRestaurant = new Restaurant({
+        restaurantID: `RES-${Date.now()}`,
+        serviceID: savedService._id,
+        cuisineTypeIDs: [],
+        dishes: [],
+        seatingCapacity: 50,
+        restaurantTypeID: null,
+      });
+      createdEntity = await newRestaurant.save();
+    } else if (type === "cafe") {
+      // Tạo Coffee
+      const newCoffee = new Coffee({
+        coffeeID: `CAF-${Date.now()}`,
+        serviceID: savedService._id,
+        coffeeTypes: [],
+        averagePrice: 50,
+        pictures: [],
+      });
+      createdEntity = await newCoffee.save();
+    }
 
     res.status(201).json({
-      message: "Hotel and Service created successfully",
+      message: `${type.charAt(0).toUpperCase() + type.slice(1)} and Service created successfully`,
       service: savedService,
-      hotel: savedHotel,
+      entity: createdEntity,
     });
   } catch (err) {
-    console.error(err);
+    console.log(err);
     res.status(500).json({ error: err.message });
   }
 });
+
 
 
 

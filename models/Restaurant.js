@@ -32,7 +32,7 @@ const restaurantSchema = new mongoose.Schema({
   restaurantTypeID: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "RestaurantType", // Tham chiếu đến bảng RestaurantType
-    required: true,
+   
   }, // Loại nhà hàng
 });
 
