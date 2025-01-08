@@ -355,27 +355,12 @@ router.get("/revenue/yearly", async (req, res) => {
  */
 router.post("/", async (req, res) => {
   try {
-<<<<<<< HEAD
     const { userID, serviceID, quantity, totalAmount, roomID, checkInDate, checkOutDate ,pictures,invoiceID, invoiceType,
       arrivalDate,
       arrivalTime,
       adults , 
       children , } = req.body;
   
-=======
-    const {
-      userID,
-      serviceID,
-      quantity,
-      totalAmount,
-      roomID,
-      checkInDate,
-      checkOutDate,
-      pictures,
-      invoiceID,
-    } = req.body;
-
->>>>>>> cd2c8caeef640f42dbabc1067e80529e618101b4
     // Tạo invoice mới
     const newInvoice = new Invoice({
       invoiceID,
@@ -390,14 +375,11 @@ router.post("/", async (req, res) => {
       checkInDate,
       checkOutDate,
       pictures,
-<<<<<<< HEAD
       invoiceType,
       arrivalDate,
       arrivalTime,
       adults , 
       children , 
-=======
->>>>>>> cd2c8caeef640f42dbabc1067e80529e618101b4
     });
 
     // Lưu vào cơ sở dữ liệu
@@ -406,10 +388,7 @@ router.post("/", async (req, res) => {
     // Trả về hóa đơn mới tạo
     res.status(201).json(newInvoice);
   } catch (err) {
-<<<<<<< HEAD
    console.log(err)
-=======
->>>>>>> cd2c8caeef640f42dbabc1067e80529e618101b4
     res.status(500).json({ error: err.message });
   }
 });
