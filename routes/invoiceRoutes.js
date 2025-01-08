@@ -21,7 +21,7 @@ const Provider = require("../models/Provider"); // Import model Provider
  * @swagger
  * /api/invoices/revenue:
  *   get:
- *     summary: Tính doanh thu cho mỗi roomID từ userID và tháng, năm
+ *     summary: Tính doanh thu cho mỗi roomType từ userID và tháng, năm
  *     tags: [Invoices]
  *     parameters:
  *       - name: userID
@@ -46,7 +46,7 @@ const Provider = require("../models/Provider"); // Import model Provider
  *         description: Năm để lọc dữ liệu (mặc định là năm hiện tại nếu không nhập)
  *     responses:
  *       200:
- *         description: Danh sách doanh thu của từng roomID
+ *         description: Danh sách doanh thu của từng roomType
  *         content:
  *           application/json:
  *             schema:
@@ -57,7 +57,7 @@ const Provider = require("../models/Provider"); // Import model Provider
  *                   items:
  *                     type: object
  *                     properties:
- *                       roomID:
+ *                       roomType:
  *                         type: string
  *                       revenue:
  *                         type: number
@@ -88,7 +88,7 @@ router.get("/revenue", async (req, res) => {
     const start = new Date(selectedYear, month - 1, 1);
     const end = new Date(selectedYear, month, 0, 23, 59, 59);
 
-    // --- Lấy danh sách roomID từ API /by-user ---
+    // --- Lấy danh sách room từ API /by-user ---
     const rooms = await Room.find().populate({
       path: "hotelID",
       populate: {
@@ -101,9 +101,13 @@ router.get("/revenue", async (req, res) => {
     });
 
     // Lọc roomID thỏa mãn điều kiện
-    const roomIDs = rooms
-      .filter((room) => room.hotelID?.serviceID?.providerID)
-      .map((room) => room._id); // Trả về ObjectId
+    const roomMap = {};
+    rooms.forEach((room) => {
+      if (room.hotelID?.serviceID?.providerID) {
+        roomMap[room._id.toString()] = room.roomType; // Lưu roomID và roomType
+      }
+    });
+    const roomIDs = Object.keys(roomMap);
 
     // --- Tính toán doanh thu ---
     const invoices = await Invoice.find({
@@ -112,28 +116,31 @@ router.get("/revenue", async (req, res) => {
       paymentStatus: "paid", // Chỉ tính hóa đơn đã thanh toán
     });
 
-    // Tính doanh thu theo từng roomID
+    // Tính doanh thu theo từng roomType
     const revenueMap = {};
 
-    // Khởi tạo doanh thu bằng 0 cho tất cả roomID
+    // Khởi tạo doanh thu bằng 0 cho tất cả roomType
     roomIDs.forEach((id) => {
-      revenueMap[id.toString()] = 0;
+      const roomType = roomMap[id];
+      if (!revenueMap[roomType]) {
+        revenueMap[roomType] = 0;
+      }
     });
 
     invoices.forEach((invoice) => {
       const roomID = invoice.roomID.toString();
+      const roomType = roomMap[roomID];
       const amount = invoice.totalAmount || 0;
 
-      if (!revenueMap[roomID]) {
-        revenueMap[roomID] = 0;
+      if (roomType) {
+        revenueMap[roomType] += amount; // Cộng dồn revenue theo roomType
       }
-      revenueMap[roomID] += amount; // Cộng dồn revenue
     });
 
     // Chuyển kết quả sang mảng để trả về
-    const result = Object.keys(revenueMap).map((roomID) => ({
-      roomID,
-      revenue: revenueMap[roomID],
+    const result = Object.keys(revenueMap).map((roomType) => ({
+      roomType,
+      revenue: revenueMap[roomType],
     }));
 
     // Trả về kết quả
@@ -148,7 +155,7 @@ router.get("/revenue", async (req, res) => {
  * @swagger
  * /api/invoices/revenue/yearly:
  *   get:
- *     summary: Tính doanh thu cho mỗi roomID theo userID và năm
+ *     summary: Tính doanh thu cho mỗi roomType từ userID và năm
  *     tags: [Invoices]
  *     parameters:
  *       - name: userID
@@ -165,7 +172,7 @@ router.get("/revenue", async (req, res) => {
  *         description: Năm để lọc dữ liệu (mặc định là năm hiện tại nếu không nhập)
  *     responses:
  *       200:
- *         description: Danh sách doanh thu của từng roomID trong năm
+ *         description: Danh sách doanh thu của từng roomType trong năm
  *         content:
  *           application/json:
  *             schema:
@@ -176,7 +183,7 @@ router.get("/revenue", async (req, res) => {
  *                   items:
  *                     type: object
  *                     properties:
- *                       roomID:
+ *                       roomType:
  *                         type: string
  *                       revenue:
  *                         type: number
@@ -207,7 +214,7 @@ router.get("/revenue/yearly", async (req, res) => {
     const start = new Date(selectedYear, 0, 1); // Ngày đầu năm
     const end = new Date(selectedYear, 11, 31, 23, 59, 59); // Ngày cuối năm
 
-    // Lấy danh sách roomID từ API `/by-user`
+    // --- Lấy danh sách room từ API `/by-user` ---
     const rooms = await Room.find().populate({
       path: "hotelID",
       populate: {
@@ -219,9 +226,14 @@ router.get("/revenue/yearly", async (req, res) => {
       },
     });
 
-    const roomIDs = rooms
-      .filter((room) => room.hotelID?.serviceID?.providerID)
-      .map((room) => room._id); // Trả về ObjectId
+    // Lọc roomID và roomType từ kết quả
+    const roomMap = {};
+    rooms.forEach((room) => {
+      if (room.hotelID?.serviceID?.providerID) {
+        roomMap[room._id.toString()] = room.roomType; // Lưu roomID và roomType
+      }
+    });
+    const roomIDs = Object.keys(roomMap);
 
     // --- Tính toán doanh thu ---
     const invoices = await Invoice.find({
@@ -230,28 +242,31 @@ router.get("/revenue/yearly", async (req, res) => {
       paymentStatus: "paid", // Chỉ tính hóa đơn đã thanh toán
     });
 
-    // Tính doanh thu theo từng roomID
+    // Tính doanh thu theo từng roomType
     const revenueMap = {};
 
-    // Khởi tạo doanh thu bằng 0 cho tất cả roomID
+    // Khởi tạo doanh thu bằng 0 cho tất cả roomType
     roomIDs.forEach((id) => {
-      revenueMap[id.toString()] = 0;
+      const roomType = roomMap[id];
+      if (!revenueMap[roomType]) {
+        revenueMap[roomType] = 0;
+      }
     });
 
     invoices.forEach((invoice) => {
       const roomID = invoice.roomID.toString();
+      const roomType = roomMap[roomID];
       const amount = invoice.totalAmount || 0;
 
-      if (!revenueMap[roomID]) {
-        revenueMap[roomID] = 0;
+      if (roomType) {
+        revenueMap[roomType] += amount; // Cộng dồn revenue theo roomType
       }
-      revenueMap[roomID] += amount; // Cộng dồn revenue
     });
 
     // Chuyển kết quả sang mảng để trả về
-    const result = Object.keys(revenueMap).map((roomID) => ({
-      roomID,
-      revenue: revenueMap[roomID],
+    const result = Object.keys(revenueMap).map((roomType) => ({
+      roomType,
+      revenue: revenueMap[roomType],
     }));
 
     // Trả về kết quả
