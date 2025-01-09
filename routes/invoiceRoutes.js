@@ -194,6 +194,92 @@ router.get("/revenue", async (req, res) => {
  *         description: Lỗi server
  */
 
+/**
+ * @swagger
+ * /api/invoices/total-amount:
+ *   get:
+ *     summary: Tính tổng số tiền của các hóa đơn đã thanh toán theo từng tháng trong năm
+ *     tags: [Invoices]
+ *     parameters:
+ *       - name: year
+ *         in: query
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Năm để lọc (bắt buộc)
+ *     responses:
+ *       200:
+ *         description: Tổng số tiền của các hóa đơn đã thanh toán theo từng tháng
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 year:
+ *                   type: integer
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       month:
+ *                         type: integer
+ *                         example: 1
+ *                       totalAmount:
+ *                         type: number
+ *                         example: 5000
+ *       400:
+ *         description: Dữ liệu đầu vào không hợp lệ
+ *       500:
+ *         description: Lỗi server
+ */
+router.get("/total-amount", async (req, res) => {
+  try {
+    const { year } = req.query;
+    // Kiểm tra dữ liệu đầu vào
+    if (!year || isNaN(year)) {
+      return res
+        .status(400)
+        .json({ error: "Year is required and must be a number" });
+    }
+    // Mảng để lưu kết quả tổng tiền theo từng tháng
+    const monthlyTotals = [];
+    // Lặp qua từng tháng (1-12)
+    for (let month = 0; month < 12; month++) {
+      const start = new Date(year, month, 1); // Ngày đầu tháng
+      const end = new Date(year, month + 1, 0, 23, 59, 59); // Ngày cuối tháng
+      // Tính tổng số tiền của các hóa đơn đã thanh toán trong tháng
+      const result = await Invoice.aggregate([
+        {
+          $match: {
+            issueDate: { $gte: start, $lte: end },
+            paymentStatus: "paid", // Chỉ tính hóa đơn đã thanh toán
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalAmount: { $sum: "$totalAmount" }, // Tính tổng tiền
+          },
+        },
+      ]);
+      // Thêm kết quả vào mảng
+      monthlyTotals.push({
+        month: month + 1,
+        totalAmount: result.length > 0 ? result[0].totalAmount : 0, // Nếu không có kết quả thì trả về 0
+      });
+    }
+    // Trả về kết quả
+    res.status(200).json({
+      year,
+      data: monthlyTotals, // Tổng số tiền theo từng tháng
+    });
+  } catch (err) {
+    console.error("Lỗi khi tính tổng số tiền:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get("/revenue/yearly", async (req, res) => {
   try {
     const { userID, year } = req.query;
@@ -370,12 +456,23 @@ router.get("/revenue/yearly", async (req, res) => {
  */
 router.post("/", async (req, res) => {
   try {
-    const { userID, serviceID, quantity, totalAmount, roomID, checkInDate, checkOutDate ,pictures,invoiceID, invoiceType,
+    const {
+      userID,
+      serviceID,
+      quantity,
+      totalAmount,
+      roomID,
+      checkInDate,
+      checkOutDate,
+      pictures,
+      invoiceID,
+      invoiceType,
       arrivalDate,
       arrivalTime,
-      adults , 
-      children , } = req.body;
-  
+      adults,
+      children,
+    } = req.body;
+
     // Tạo invoice mới
     const newInvoice = new Invoice({
       invoiceID,
@@ -393,8 +490,8 @@ router.post("/", async (req, res) => {
       invoiceType,
       arrivalDate,
       arrivalTime,
-      adults , 
-      children , 
+      adults,
+      children,
     });
 
     // Lưu vào cơ sở dữ liệu
@@ -403,7 +500,7 @@ router.post("/", async (req, res) => {
     // Trả về hóa đơn mới tạo
     res.status(201).json(newInvoice);
   } catch (err) {
-   console.log(err)
+    console.log(err);
     res.status(500).json({ error: err.message });
   }
 });
